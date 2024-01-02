@@ -88,18 +88,22 @@ extension BolusRecommendationNotice: Codable {
 }
 
 public struct ManualBolusRecommendation {
+    public let rawAmount: Double
     public let amount: Double
     public let pendingInsulin: Double
     public var notice: BolusRecommendationNotice?
     public let carbsAmount: Double?
     public let correctionAmount: Double?
+    public let excessAmount: Double?
 
-    public init(amount: Double, pendingInsulin: Double, notice: BolusRecommendationNotice? = nil, carbsAmount: Double? = nil, correctionAmount: Double? = nil) {
+    public init(rawAmount: Double? = nil, amount: Double, pendingInsulin: Double, notice: BolusRecommendationNotice? = nil, carbsAmount: Double? = nil, correctionAmount: Double? = nil, excessAmount: Double? = nil) {
+        self.rawAmount = rawAmount ?? amount
         self.amount = amount
         self.pendingInsulin = pendingInsulin
         self.notice = notice
         self.carbsAmount = carbsAmount
         self.correctionAmount = correctionAmount
+        self.excessAmount = excessAmount
     }
 }
 

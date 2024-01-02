@@ -245,7 +245,8 @@ class DosingDecisionStorePersistenceTests: PersistenceControllerTestCase, Dosing
             }
           }
         },
-        "pendingInsulin" : 0.75
+        "pendingInsulin" : 0.75,
+        "rawAmount" : 1.2
       }
     },
     "manualBolusRequested" : 0.80000000000000004,
@@ -855,7 +856,8 @@ class StoredDosingDecisionCodableTests: XCTestCase {
           }
         }
       },
-      "pendingInsulin" : 0.75
+      "pendingInsulin" : 0.75,
+      "rawAmount" : 1.2
     }
   },
   "manualBolusRequested" : 0.80000000000000004,
@@ -973,6 +975,8 @@ class StoredDosingDecisionCodableTests: XCTestCase {
 
     private func assertStoredDosingDecisionCodable(_ original: StoredDosingDecision, encodesJSON string: String) throws {
         let data = try encoder.encode(original)
+        let str = String(data: data, encoding: .utf8)
+        XCTAssertEqual(string.difference(from: str!), CollectionDifference([]))
         XCTAssertEqual(String(data: data, encoding: .utf8), string)
         let decoded = try decoder.decode(StoredDosingDecision.self, from: data)
         XCTAssertEqual(decoded, original)

@@ -13,10 +13,25 @@ private enum InsulinCorrection {
     case inRange
     case aboveRange(min: GlucoseValue, correcting: GlucoseValue, minTarget: HKQuantity, units: Double)
     case entirelyBelowRange(min: GlucoseValue, minTarget: HKQuantity, units: Double)
-    case suspend(min: GlucoseValue)
+    case suspend(min: GlucoseValue, rawUnits: Double)
 }
 
 extension InsulinCorrection {
+    
+    /// The raw units for the correction; may be negative or exceed max bolus
+    fileprivate var rawUnits: Double {
+        switch self {
+        case .aboveRange(min: _, correcting: _, minTarget: _, units: let units):
+            return units
+        case .entirelyBelowRange(min: _, minTarget: _, units: let units):
+            return units
+        case .suspend(min: _, rawUnits: let rawUnits):
+            return rawUnits
+        case .inRange:
+            return 0
+        }
+    }
+    
     /// The delivery units for the correction
     private var units: Double {
         switch self {
@@ -65,7 +80,7 @@ extension InsulinCorrection {
 
     private var bolusRecommendationNotice: BolusRecommendationNotice? {
         switch self {
-        case .suspend(min: let minimum):
+        case .suspend(min: let minimum, rawUnits: _):
             return .glucoseBelowSuspendThreshold(minGlucose: minimum)
         case .inRange:
             return .predictedGlucoseInRange
@@ -94,13 +109,16 @@ extension InsulinCorrection {
         volumeRounder: ((Double) -> Double)?
     ) -> ManualBolusRecommendation {
         var units = self.units - pendingInsulin
+        var excess = Swift.max(0, units - maxBolus)
         units = Swift.min(maxBolus, Swift.max(0, units))
         units = volumeRounder?(units) ?? units
 
         return ManualBolusRecommendation(
+            rawAmount: self.rawUnits - pendingInsulin,
             amount: units,
             pendingInsulin: pendingInsulin,
-            notice: bolusRecommendationNotice
+            notice: bolusRecommendationNotice,
+            excessAmount: excess
         )
     }
 
@@ -271,17 +289,15 @@ extension Collection where Element: GlucoseValue {
 
         let unit = correctionRange.unit
         let suspendThresholdValue = suspendThreshold.doubleValue(for: unit)
-
+        
         // For each prediction above target, determine the amount of insulin necessary to correct glucose based on the modeled effectiveness of the insulin at that time
         for prediction in self {
             guard validDateRange.contains(prediction.startDate) else {
                 continue
             }
-
-            // If any predicted value is below the suspend threshold, return immediately
+            
             guard prediction.quantity >= suspendThreshold else {
-                print("Suspend!")
-                return .suspend(min: prediction)
+                return .suspend(min: prediction, rawUnits: 0.0)
             }
 
             eventualGlucose = prediction
@@ -309,7 +325,7 @@ extension Collection where Element: GlucoseValue {
             }
 
             // Update range statistics
-            if minGlucose == nil || prediction.quantity < minGlucose!.quantity {
+            if (minGlucose == nil || prediction.quantity < minGlucose!.quantity) && effectedSensitivity > 0 {
                 minGlucose = prediction
                 effectedSensitivityAtMinGlucose = effectedSensitivity
             }
@@ -350,7 +366,7 @@ extension Collection where Element: GlucoseValue {
             ) else {
                 return nil
             }
-
+            
             return .entirelyBelowRange(
                 min: minGlucose,
                 minTarget: minGlucoseTargets.lowerBound,
@@ -547,7 +563,7 @@ extension Collection where Element: GlucoseValue {
         maxBolus: Double,
         volumeRounder: ((Double) -> Double)? = nil
     ) -> ManualBolusRecommendation {
-        guard let correction = self.insulinCorrection(
+        guard var correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
@@ -555,6 +571,24 @@ extension Collection where Element: GlucoseValue {
             model: model
         ) else {
             return ManualBolusRecommendation(amount: 0, pendingInsulin: pendingInsulin)
+        }
+
+        switch correction {
+        case .suspend(min: let min, rawUnits: _) :
+            let breakdownGlucoseRangeSchedule = GlucoseRangeSchedule(unit: .milligramsPerDeciliter, dailyItems: [
+                RepeatingScheduleValue(startTime: TimeInterval(0), value: DoubleRange(minValue: -1E5, maxValue: -1E5))
+            ])
+            
+            if let unboundCorrection = self.insulinCorrection(
+                to: correctionRange,
+                at: date,
+                suspendThreshold: breakdownGlucoseRangeSchedule!.quantityRange(at: date).lowerBound,
+                sensitivity: sensitivity.quantity(at: date),
+                model: model
+            ) {
+                correction = .suspend(min: min, rawUnits: unboundCorrection.rawUnits)
+            }
+        default : break
         }
 
         var bolus = correction.asManualBolus(
