@@ -265,12 +265,15 @@ extension Collection where Element: GlucoseValue {
         var correctingGlucose: GlucoseValue?
         var minCorrectionUnits: Double?
         var effectedSensitivityAtMinGlucose: Double?
+        
 
         // Only consider predictions within the model's effect duration
         let validDateRange = DateInterval(start: date, duration: model.effectDuration)
 
         let unit = correctionRange.unit
         let suspendThresholdValue = suspendThreshold.doubleValue(for: unit)
+        
+        var maxNonSuspendUnits = Double.infinity
 
         // For each prediction above target, determine the amount of insulin necessary to correct glucose based on the modeled effectiveness of the insulin at that time
         for prediction in self {
@@ -295,7 +298,7 @@ extension Collection where Element: GlucoseValue {
                 minValue: suspendThresholdValue,
                 maxValue: correctionRange.quantityRange(at: prediction.startDate).averageValue(for: unit)
             )
-
+            
             // Compute the dose required to bring this prediction to target:
             // dose = (Glucose Δ) / (% effect × sensitivity)
 
@@ -305,7 +308,13 @@ extension Collection where Element: GlucoseValue {
                 let start = Swift.max(date, segment.startDate).timeIntervalSince(date)
                 let end = Swift.min(prediction.startDate, segment.endDate).timeIntervalSince(date)
                 let percentEffected = model.percentEffectRemaining(at: start) - model.percentEffectRemaining(at: end)
-                return percentEffected * segment.value.doubleValue(for: unit)
+                return partialResult + percentEffected * segment.value.doubleValue(for: unit)
+            }
+            
+            // Ensure the dose won't result in the updated prediction going beneath the suspend threshold
+            if let suspendUnits = insulinCorrectionUnits(fromValue: predictedGlucoseValue, toValue: suspendThresholdValue, effectedSensitivity: effectedSensitivity) {
+                
+                maxNonSuspendUnits = Swift.min(maxNonSuspendUnits, suspendUnits)
             }
 
             // Update range statistics
@@ -354,7 +363,7 @@ extension Collection where Element: GlucoseValue {
             return .entirelyBelowRange(
                 min: minGlucose,
                 minTarget: minGlucoseTargets.lowerBound,
-                units: units
+                units: Swift.min(units, maxNonSuspendUnits)
             )
         } else if eventualGlucose.quantity > eventualGlucoseTargets.upperBound,
             let minCorrectionUnits = minCorrectionUnits, let correctingGlucose = correctingGlucose
@@ -363,7 +372,7 @@ extension Collection where Element: GlucoseValue {
                 min: minGlucose,
                 correcting: correctingGlucose,
                 minTarget: eventualGlucoseTargets.lowerBound,
-                units: minCorrectionUnits
+                units: Swift.min(minCorrectionUnits, maxNonSuspendUnits)
             )
         } else {
             return .inRange
