@@ -16,6 +16,7 @@ public enum AlgorithmError: Error {
 
 public struct LoopAlgorithmEffects {
     public var insulin: [GlucoseEffect]
+    public var negativeInsulinDamper: [GlucoseEffect]
     public var carbs: [GlucoseEffect]
     public var retrospectiveCorrection: [GlucoseEffect]
     public var momentum: [GlucoseEffect]
@@ -29,8 +30,9 @@ public struct AlgorithmEffectsOptions: OptionSet {
     public static let insulin          = AlgorithmEffectsOptions(rawValue: 1 << 1)
     public static let momentum         = AlgorithmEffectsOptions(rawValue: 1 << 2)
     public static let retrospection    = AlgorithmEffectsOptions(rawValue: 1 << 3)
+    public static let damper           = AlgorithmEffectsOptions(rawValue: 1 << 4)
 
-    public static let all: AlgorithmEffectsOptions = [.carbs, .insulin, .momentum, .retrospection]
+    public static let all: AlgorithmEffectsOptions = [.carbs, .insulin, .momentum, .retrospection, .damper]
 
     public init(rawValue: UInt8) {
         self.rawValue = rawValue
@@ -98,6 +100,49 @@ public actor LoopAlgorithm {
             insulinSensitivityHistory: settings.sensitivity,
             from: start.addingTimeInterval(-CarbMath.maximumAbsorptionTimeInterval).dateFlooredToTimeInterval(settings.delta),
             to: nil)
+        
+        // Negative Insulin Damper
+        var posDeltas = [Double]()
+        var posDeltaSum = 0.0
+        insulinEffects.enumerated().forEach{
+            let delta : Double
+            if $0.offset == 0 {
+                delta = 0
+            } else {
+                delta = $0.element.quantity.doubleValue(for: .milligramsPerDeciliter) - insulinEffects[$0.offset - 1].quantity.doubleValue(for: .milligramsPerDeciliter)
+            }
+            posDeltaSum += max(0, delta)
+            posDeltas.append(max(0, delta))
+        }
+        
+        // when NID is added to insulinEffect, the end result is alpha * insulinEffect, where alpha is dependent on posDeltaSum
+        // the long term slope will be marginalSlope
+        // in the initial linear scaling region alpha will be anchorAlpha at anchorPoint
+        let marginalSlope = 0.1
+        let anchorPoint = 50.0
+        let anchorAlpha = 0.75
+        
+        let linearScaleSlope = (1.0 - anchorAlpha)/anchorPoint // how alpha scales down in the linear scale region
+        
+        // the slope in the linear scale region of alpha * posDeltaSum is 1 - 2*linearScaleSlope*posDeltaSum.
+        // the transitionPoint is where we transition from linear scale region to marginalSlope. The slope is continuous at this point
+        let transitionPoint = (1 - marginalSlope) / (2 * linearScaleSlope)
+        
+        let alpha : Double
+        if posDeltaSum < transitionPoint { // linear scaling region
+            alpha = 1 - linearScaleSlope * posDeltaSum
+        } else { // marginal slope region
+            let transitionValue = (1 - linearScaleSlope * transitionPoint) * transitionPoint
+            alpha = (transitionValue + marginalSlope * (posDeltaSum - transitionPoint)) / posDeltaSum
+        }
+        
+        var damperEffects = [GlucoseEffect]()
+        var value = 0.0
+        insulinEffects.enumerated().forEach{
+            value += (alpha - 1) * posDeltas[$0.offset]
+            damperEffects.append(GlucoseEffect(startDate: $0.element.startDate, quantity: HKQuantity(unit: .milligramsPerDeciliter, doubleValue: value)))
+        }
+        
 
         // ICE
         let insulinCounteractionEffects = input.glucoseHistory.counteractionEffects(to: insulinEffects)
@@ -151,6 +196,10 @@ public actor LoopAlgorithm {
         if settings.algorithmEffectsOptions.contains(.insulin) {
             effects.append(insulinEffects)
         }
+        
+        if settings.algorithmEffectsOptions.contains(.damper) {
+            effects.append(damperEffects)
+        }
 
         if settings.algorithmEffectsOptions.contains(.retrospection) {
             effects.append(rcEffect)
@@ -178,6 +227,7 @@ public actor LoopAlgorithm {
             glucose: prediction,
             effects: LoopAlgorithmEffects(
                 insulin: insulinEffects,
+                negativeInsulinDamper: damperEffects,
                 carbs: carbEffects,
                 retrospectiveCorrection: rcEffect,
                 momentum: momentumEffects,
