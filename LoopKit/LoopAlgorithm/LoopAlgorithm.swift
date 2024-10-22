@@ -100,49 +100,6 @@ public actor LoopAlgorithm {
             insulinSensitivityHistory: settings.sensitivity,
             from: start.addingTimeInterval(-CarbMath.maximumAbsorptionTimeInterval).dateFlooredToTimeInterval(settings.delta),
             to: nil)
-        
-        // Negative Insulin Damper
-        var posDeltas = [Double]()
-        var posDeltaSum = 0.0
-        insulinEffects.enumerated().forEach{
-            let delta : Double
-            if $0.offset == 0 {
-                delta = 0
-            } else {
-                delta = $0.element.quantity.doubleValue(for: .milligramsPerDeciliter) - insulinEffects[$0.offset - 1].quantity.doubleValue(for: .milligramsPerDeciliter)
-            }
-            posDeltaSum += max(0, delta)
-            posDeltas.append(max(0, delta))
-        }
-        
-        // when NID is added to insulinEffect, the end result is alpha * insulinEffect, where alpha is dependent on posDeltaSum
-        // the long term slope will be marginalSlope
-        // in the initial linear scaling region alpha will be anchorAlpha at anchorPoint
-        let marginalSlope = 0.1
-        let anchorPoint = 50.0
-        let anchorAlpha = 0.75
-        
-        let linearScaleSlope = (1.0 - anchorAlpha)/anchorPoint // how alpha scales down in the linear scale region
-        
-        // the slope in the linear scale region of alpha * posDeltaSum is 1 - 2*linearScaleSlope*posDeltaSum.
-        // the transitionPoint is where we transition from linear scale region to marginalSlope. The slope is continuous at this point
-        let transitionPoint = (1 - marginalSlope) / (2 * linearScaleSlope)
-        
-        let alpha : Double
-        if posDeltaSum < transitionPoint { // linear scaling region
-            alpha = 1 - linearScaleSlope * posDeltaSum
-        } else { // marginal slope region
-            let transitionValue = (1 - linearScaleSlope * transitionPoint) * transitionPoint
-            alpha = (transitionValue + marginalSlope * (posDeltaSum - transitionPoint)) / posDeltaSum
-        }
-        
-        var damperEffects = [GlucoseEffect]()
-        var value = 0.0
-        insulinEffects.enumerated().forEach{
-            value += (alpha - 1) * posDeltas[$0.offset]
-            damperEffects.append(GlucoseEffect(startDate: $0.element.startDate, quantity: HKQuantity(unit: .milligramsPerDeciliter, doubleValue: value)))
-        }
-        
 
         // ICE
         let insulinCounteractionEffects = input.glucoseHistory.counteractionEffects(to: insulinEffects)
@@ -196,10 +153,6 @@ public actor LoopAlgorithm {
         if settings.algorithmEffectsOptions.contains(.insulin) {
             effects.append(insulinEffects)
         }
-        
-        if settings.algorithmEffectsOptions.contains(.damper) {
-            effects.append(damperEffects)
-        }
 
         if settings.algorithmEffectsOptions.contains(.retrospection) {
             effects.append(rcEffect)
@@ -215,6 +168,67 @@ public actor LoopAlgorithm {
         }
 
         var prediction = LoopMath.predictGlucose(startingAt: latestGlucose, momentum: momentumEffects, effects: effects)
+        
+        var damperEffects = [GlucoseEffect]()
+        
+        if settings.algorithmEffectsOptions.contains(.damper) {
+            var posDeltaSum = 0.0
+            insulinEffects.enumerated().forEach{
+                let delta : Double
+                if $0.offset == 0 {
+                    delta = 0
+                } else {
+                    delta = $0.element.quantity.doubleValue(for: .milligramsPerDeciliter) - insulinEffects[$0.offset - 1].quantity.doubleValue(for: .milligramsPerDeciliter)
+                }
+                posDeltaSum += max(0, delta)
+            }
+            
+            // NID will change the final prediction so that positive changes will be multiplied by weight alpha
+            // the long term slope will be marginalSlope
+            // in the initial linear scaling region alpha will be anchorAlpha at anchorPoint
+            let marginalSlope = 0.1
+            let anchorPoint = 50.0 // FIXME change to basal * ISF
+            let anchorAlpha = 0.8
+            
+            let linearScaleSlope = (1.0 - anchorAlpha)/anchorPoint // how alpha scales down in the linear scale region
+            
+            // the slope in the linear scale region of alpha * posDeltaSum is 1 - 2*linearScaleSlope*posDeltaSum.
+            // the transitionPoint is where we transition from linear scale region to marginalSlope. The slope is continuous at this point
+            let transitionPoint = (1 - marginalSlope) / (2 * linearScaleSlope)
+            
+            let alpha : Double
+            if posDeltaSum < transitionPoint { // linear scaling region
+                alpha = 1 - linearScaleSlope * posDeltaSum
+            } else { // marginal slope region
+                let transitionValue = (1 - linearScaleSlope * transitionPoint) * transitionPoint
+                alpha = (transitionValue + marginalSlope * (posDeltaSum - transitionPoint)) / posDeltaSum
+            }
+             
+            var dampedPrediction = [PredictedGlucoseValue]()
+            var value = 0.0
+            prediction.enumerated().forEach{
+                
+                if $0.offset == 0 {
+                    value = $0.element.quantity.doubleValue(for: .milligramsPerDeciliter)
+                    dampedPrediction.append($0.element)
+                    damperEffects.append(GlucoseEffect(startDate: $0.element.startDate, quantity: HKQuantity(unit: .milligramsPerDeciliter, doubleValue: 0)))
+                    return
+                }
+                let currValue = $0.element.quantity.doubleValue(for: .milligramsPerDeciliter)
+                let delta = currValue - prediction[$0.offset - 1].quantity.doubleValue(for: .milligramsPerDeciliter)
+
+                if delta > 0 {
+                    value += alpha * delta
+                } else {
+                    value += delta
+                }
+                
+                dampedPrediction.append(PredictedGlucoseValue(startDate: $0.element.startDate, quantity: HKQuantity(unit: .milligramsPerDeciliter, doubleValue: value)))
+                damperEffects.append(GlucoseEffect(startDate: $0.element.startDate, quantity: HKQuantity(unit: .milligramsPerDeciliter, doubleValue: value - currValue)))
+            }
+            
+            prediction = dampedPrediction
+        }
 
         // Dosing requires prediction entries at least as long as the insulin model duration.
         // If our prediction is shorter than that, then extend it here.
