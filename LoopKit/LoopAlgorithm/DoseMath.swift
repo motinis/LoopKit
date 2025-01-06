@@ -222,14 +222,14 @@ extension Collection where Element: GlucoseValue {
     /// - Parameters:
     ///   - correctionRange: The schedule of glucose values used for correction
     ///   - date: The date the insulin correction is delivered
-    ///   - suspendThreshold: The glucose value below which only suspension is returned
+    ///   - suspendThresholdProvider: For any date, the glucose value below which only suspension is returned
     ///   - sensitivity: The insulin sensitivity at the time of delivery
     ///   - model: The insulin effect model
     /// - Returns: A correction value in units, or nil if no correction needed
     private func insulinCorrection(
         to correctionRange: GlucoseRangeSchedule,
         at date: Date,
-        suspendThreshold: HKQuantity,
+        suspendThresholdProvider: (Date) -> HKQuantity,
         sensitivity: HKQuantity,
         model: InsulinModel
     ) -> InsulinCorrection? {
@@ -238,7 +238,7 @@ extension Collection where Element: GlucoseValue {
         return insulinCorrection(
             to: correctionRange,
             at: date,
-            suspendThreshold: suspendThreshold,
+            suspendThresholdProvider: suspendThresholdProvider,
             insulinSensitivityTimeline: timeline,
             model: model)
     }
@@ -249,14 +249,15 @@ extension Collection where Element: GlucoseValue {
     /// - Parameters:
     ///   - correctionRange: The schedule of glucose values used for correction
     ///   - date: The date the insulin correction is delivered
-    ///   - suspendThreshold: The glucose value below which only suspension is returned
+    ///   - suspendThresholdProvider: For any date, the glucose value below which only suspension is returned
     ///   - insulinSensitivityTimeline: The timeline of expected insulin sensitivity over the period of dose absorption
     ///   - model: The insulin effect model
+    ///   - useLowRangeForSuspendThreshold: whether to ignore the suspend threshold and always use the dynamic low end of correction range instead
     /// - Returns: A correction value in units, or nil if no correction needed
     private func insulinCorrection(
         to correctionRange: GlucoseRangeSchedule,
         at date: Date,
-        suspendThreshold: HKQuantity,
+        suspendThresholdProvider: (Date) -> HKQuantity,
         insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
         model: InsulinModel
     ) -> InsulinCorrection? {
@@ -270,15 +271,19 @@ extension Collection where Element: GlucoseValue {
         let validDateRange = DateInterval(start: date, duration: model.effectDuration)
 
         let unit = correctionRange.unit
-        let suspendThresholdValue = suspendThreshold.doubleValue(for: unit)
+        
 
         // For each prediction above target, determine the amount of insulin necessary to correct glucose based on the modeled effectiveness of the insulin at that time
         for prediction in self {
             guard validDateRange.contains(prediction.startDate) else {
                 continue
             }
-
+            
             // If any predicted value is below the suspend threshold, return immediately
+            let range = correctionRange.quantityRange(at: prediction.startDate)
+            
+            let suspendThreshold = suspendThresholdProvider(prediction.startDate)
+            
             guard prediction.quantity >= suspendThreshold else {
                 print("Suspend!")
                 return .suspend(min: prediction)
@@ -290,10 +295,11 @@ extension Collection where Element: GlucoseValue {
             let time = prediction.startDate.timeIntervalSince(date)
 
             // Compute the target value as a function of time since the dose started
+            
             let targetValue = targetGlucoseValue(
                 percentEffectDuration: time / model.effectDuration,
-                minValue: suspendThresholdValue,
-                maxValue: correctionRange.quantityRange(at: prediction.startDate).averageValue(for: unit)
+                minValue:  suspendThreshold.doubleValue(for: unit),
+                maxValue: range.averageValue(for: unit)
             )
 
             // Compute the dose required to bring this prediction to target:
@@ -407,7 +413,7 @@ extension Collection where Element: GlucoseValue {
         let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
-            suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
+            suspendThresholdProvider: { _ in suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound},
             sensitivity: sensitivity.quantity(at: date),
             model: model
         )
@@ -447,6 +453,7 @@ extension Collection where Element: GlucoseValue {
     ///
     /// Returns nil if the normal scheduled basal, or active temporary basal, is sufficient.
     ///
+    /// FIXME add missing parameters below
     /// - Parameters:
     ///   - correctionRange: The schedule of correction ranges
     ///   - date: The date at which the temp basal would be scheduled, defaults to now
@@ -480,7 +487,7 @@ extension Collection where Element: GlucoseValue {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
-            suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
+            suspendThresholdProvider: { _ in suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound},
             sensitivity: sensitivity.quantity(at: date),
             model: model
         ) else {
@@ -490,6 +497,88 @@ extension Collection where Element: GlucoseValue {
         let scheduledBasalRate = basalRates.value(at: date)
         var maxAutomaticBolus = maxAutomaticBolus
 
+        if case .aboveRange(min: let min, correcting: _, minTarget: let doseThreshold, units: _) = correction,
+            min.quantity < doseThreshold
+        {
+            maxAutomaticBolus = 0
+        }
+
+        var temp: TempBasalRecommendation? = correction.asTempBasal(
+            scheduledBasalRate: scheduledBasalRate,
+            maxBasalRate: scheduledBasalRate,
+            duration: duration,
+            rateRounder: rateRounder
+        )
+
+        temp = temp?.ifNecessary(
+            at: date,
+            scheduledBasalRate: scheduledBasalRate,
+            lastTempBasal: lastTempBasal,
+            continuationInterval: continuationInterval,
+            scheduledBasalRateMatchesPump: !isBasalRateScheduleOverrideActive
+        )
+
+        let bolusUnits = correction.asPartialBolus(
+            partialApplicationFactor: partialApplicationFactor,
+            maxBolusUnits: maxAutomaticBolus,
+            volumeRounder: volumeRounder
+        )
+
+        if temp != nil || bolusUnits > 0 {
+            return AutomaticDoseRecommendation(basalAdjustment: temp, bolusUnits: bolusUnits)
+        }
+
+        return nil
+    }
+
+    /// Recommends a dose suitable for automatic enactment for SMB. self should be a prediction with insulin suspended.
+    /// If a dose is created then it will have a corresponding offsetting temp basal as well. Otherwise nil is returned. This
+    /// method does not check for suitability of the prediction with insulin for use for SMB.
+    ///
+    /// FIXME add missing parameters below
+    /// - Parameters:
+    ///   - correctionRange: The schedule of correction ranges
+    ///   - date: The date at which the temp basal would be scheduled, defaults to now
+    ///   - sensitivity: The schedule of insulin sensitivities
+    ///   - model: The insulin absorption model
+    ///   - basalRates: The schedule of basal rates
+    ///   - lastTempBasal: The previously set temp basal
+    ///   - rateRounder: Closure that rounds recommendation to nearest supported rate. If nil, no rounding is performed
+    ///   - isBasalRateScheduleOverrideActive: A flag describing whether a basal rate schedule override is in progress
+    ///   - duration: The duration of the temporary basal
+    ///   - continuationInterval: The duration of time before an ongoing temp basal should be continued with a new command
+    /// - Returns: The recommended dosing, or nil if no dose adjustment recommended
+    public func recommendedSuperMicroBolusDose(
+        to correctionRange: GlucoseRangeSchedule,
+        at date: Date = Date(),
+        sensitivity: InsulinSensitivitySchedule,
+        model: InsulinModel,
+        basalRates: BasalRateSchedule,
+        maxAutomaticBolus: Double,
+        partialApplicationFactor: Double,
+        lastTempBasal: DoseEntry?,
+        volumeRounder: ((Double) -> Double)? = nil,
+        rateRounder: ((Double) -> Double)? = nil,
+        isBasalRateScheduleOverrideActive: Bool = false,
+        duration: TimeInterval = TimeInterval(30 * 60),
+        continuationInterval: TimeInterval = TimeInterval(29 * 60)
+        
+    ) -> AutomaticDoseRecommendation? {
+        guard let correction = self.insulinCorrection(
+            to: correctionRange,
+            at: date,
+            suspendThresholdProvider: { correctionRange.quantityRange(at: $0).lowerBound },
+            sensitivity: sensitivity.quantity(at: date),
+            model: model
+        ) else {
+            return nil
+        }
+        
+        // TODO finish implementation
+
+        let scheduledBasalRate = basalRates.value(at: date)
+        var maxAutomaticBolus = maxAutomaticBolus
+        
         if case .aboveRange(min: let min, correcting: _, minTarget: let doseThreshold, units: _) = correction,
             min.quantity < doseThreshold
         {
@@ -550,7 +639,7 @@ extension Collection where Element: GlucoseValue {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
-            suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
+            suspendThresholdProvider: { _ in suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound},
             sensitivity: sensitivity.quantity(at: date),
             model: model
         ) else {
