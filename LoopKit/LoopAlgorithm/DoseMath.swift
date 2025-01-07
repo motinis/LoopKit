@@ -530,6 +530,65 @@ extension Collection where Element: GlucoseValue {
 
         return nil
     }
+    
+    /// Returns where an SMB should be considered. self should include pending insulin when it's a temp basal that is withdrawing insulin.
+    /// This ensures that when SMB is already active, we will consider the current zero as continuing to being applied.
+    ///
+    /// - Parameters:
+    ///   - correctionRange: The schedule of correction ranges
+    ///   - date: The date at which the temp basal would be scheduled, defaults to now
+    ///   - suspendThreshold: A glucose value causing a result of false if any prediction falls below
+    ///   - sensitivity: The schedule of insulin sensitivities
+    ///   - model: The insulin absorption model
+    ///   - basalRates: The schedule of basal rates
+    /// - Returns: Whether an SMB dose should be considered
+    public func isEligibleForSuperMicroBolus(
+        to correctionRange: GlucoseRangeSchedule,
+        at date: Date = Date(),
+        suspendThreshold: HKQuantity?,
+        sensitivity: InsulinSensitivitySchedule,
+        model: InsulinModel,
+        basalRates: BasalRateSchedule
+    ) -> Bool {
+        
+        guard !self.isEmpty else {
+            return false
+        }
+        
+        var eventualGlucose : GlucoseValue?
+        
+        let threshold = suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound
+        
+        // Only consider predictions within the model's effect duration
+        let validDateRange = DateInterval(start: date, duration: model.effectDuration)
+        let aboveRangePeriod = DateInterval(start: date, duration: .hours(2))
+
+        let unit = correctionRange.unit
+
+        for prediction in self {
+            guard validDateRange.contains(prediction.startDate) else {
+                continue
+            }
+            
+            // If any predicted value is below the suspend threshold, return immediately
+            if prediction.quantity < threshold {
+                return false
+            }
+            
+            eventualGlucose = prediction
+            
+            let range = correctionRange.quantityRange(at: prediction.startDate)
+            if aboveRangePeriod.contains(prediction.startDate), prediction.quantity <= range.upperBound {
+                return false
+            }
+        }
+        
+        guard let eventualGlucose else {
+            return false
+        }
+            
+        return eventualGlucose.quantity >= correctionRange.quantityRange(at: eventualGlucose.startDate).lowerBound
+    }
 
     /// Recommends a dose suitable for automatic enactment for SMB. self should be a prediction with insulin suspended.
     /// If a dose is created then it will have a corresponding offsetting temp basal as well. Otherwise nil is returned. This
@@ -547,7 +606,7 @@ extension Collection where Element: GlucoseValue {
     ///   - isBasalRateScheduleOverrideActive: A flag describing whether a basal rate schedule override is in progress
     ///   - duration: The duration of the temporary basal
     ///   - continuationInterval: The duration of time before an ongoing temp basal should be continued with a new command
-    /// - Returns: The recommended dosing, or nil if no dose adjustment recommended
+    /// - Returns: The recommended SMB dosing, or nil if no dose adjustment recommended
     public func recommendedSuperMicroBolusDose(
         to correctionRange: GlucoseRangeSchedule,
         at date: Date = Date(),
@@ -560,8 +619,8 @@ extension Collection where Element: GlucoseValue {
         volumeRounder: ((Double) -> Double)? = nil,
         rateRounder: ((Double) -> Double)? = nil,
         isBasalRateScheduleOverrideActive: Bool = false,
-        duration: TimeInterval = TimeInterval(30 * 60),
-        continuationInterval: TimeInterval = TimeInterval(29 * 60)
+        duration: TimeInterval = TimeInterval(60 * 60),
+        continuationInterval: TimeInterval = TimeInterval(31 * 60)
         
     ) -> AutomaticDoseRecommendation? {
         guard let correction = self.insulinCorrection(
@@ -574,8 +633,6 @@ extension Collection where Element: GlucoseValue {
             return nil
         }
         
-        // TODO finish implementation
-
         let scheduledBasalRate = basalRates.value(at: date)
         var maxAutomaticBolus = maxAutomaticBolus
         
@@ -584,15 +641,19 @@ extension Collection where Element: GlucoseValue {
         {
             maxAutomaticBolus = 0
         }
-
-        var temp: TempBasalRecommendation? = correction.asTempBasal(
-            scheduledBasalRate: scheduledBasalRate,
-            maxBasalRate: scheduledBasalRate,
-            duration: duration,
-            rateRounder: rateRounder
+        
+        let bolusUnits = correction.asPartialBolus(
+            partialApplicationFactor: partialApplicationFactor,
+            maxBolusUnits: maxAutomaticBolus,
+            volumeRounder: volumeRounder
         )
 
-        temp = temp?.ifNecessary(
+        guard bolusUnits > 0 else {
+            return nil
+        }
+
+        let temp = TempBasalRecommendation(unitsPerHour: rateRounder != nil ? rateRounder!(0.0) : 0.0, duration: duration)
+        let tempBasal = temp.ifNecessary(
             at: date,
             scheduledBasalRate: scheduledBasalRate,
             lastTempBasal: lastTempBasal,
@@ -600,17 +661,7 @@ extension Collection where Element: GlucoseValue {
             scheduledBasalRateMatchesPump: !isBasalRateScheduleOverrideActive
         )
 
-        let bolusUnits = correction.asPartialBolus(
-            partialApplicationFactor: partialApplicationFactor,
-            maxBolusUnits: maxAutomaticBolus,
-            volumeRounder: volumeRounder
-        )
-
-        if temp != nil || bolusUnits > 0 {
-            return AutomaticDoseRecommendation(basalAdjustment: temp, bolusUnits: bolusUnits)
-        }
-
-        return nil
+        return AutomaticDoseRecommendation(basalAdjustment: temp, bolusUnits: bolusUnits)
     }
 
 
