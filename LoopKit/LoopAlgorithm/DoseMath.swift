@@ -571,14 +571,17 @@ extension Collection where Element: GlucoseValue {
             }
             
             // If any predicted value is below the suspend threshold, return immediately
-            if prediction.quantity < threshold {
+            guard prediction.quantity >= threshold else {
                 return false
             }
             
             eventualGlucose = prediction
             
-            let range = correctionRange.quantityRange(at: prediction.startDate)
-            if aboveRangePeriod.contains(prediction.startDate), prediction.quantity <= range.upperBound {
+            guard aboveRangePeriod.contains(prediction.startDate) else {
+                continue
+            }
+            // in the aboveRange period, all predictions must be above the correction range
+            guard prediction.quantity > correctionRange.quantityRange(at: prediction.startDate).upperBound else {
                 return false
             }
         }
@@ -587,6 +590,7 @@ extension Collection where Element: GlucoseValue {
             return false
         }
             
+        // eventualGlucose must not be beneath the correction range
         return eventualGlucose.quantity >= correctionRange.quantityRange(at: eventualGlucose.startDate).lowerBound
     }
 
