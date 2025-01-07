@@ -646,12 +646,28 @@ extension Collection where Element: GlucoseValue {
             maxAutomaticBolus = 0
         }
         
-        let bolusUnits = correction.asPartialBolus(
+        var bolusUnits = correction.asPartialBolus(
             partialApplicationFactor: partialApplicationFactor,
             maxBolusUnits: maxAutomaticBolus,
             volumeRounder: volumeRounder
         )
 
+        guard bolusUnits > 0 else {
+            return nil
+        }
+        
+        var sumBasalRates = 0.0
+        for i in 0...5 {
+            let date = date.addingTimeInterval(.minutes(5 * Double(i)))
+            if let lastTempBasal = lastTempBasal, lastTempBasal.type == .tempBasal, lastTempBasal.endDate > date {
+                sumBasalRates += lastTempBasal.unitsPerHour
+            } else {
+                sumBasalRates += basalRates.value(at: date)
+            }
+        }
+        
+        // ensure we don't bolus more than what would be given in next 30 minutes
+        bolusUnits = Swift.min(bolusUnits, (volumeRounder ?? {$0})(sumBasalRates / 12))
         guard bolusUnits > 0 else {
             return nil
         }
