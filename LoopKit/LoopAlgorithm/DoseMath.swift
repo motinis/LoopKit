@@ -413,7 +413,7 @@ extension Collection where Element: GlucoseValue {
         let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
-            suspendThresholdProvider: { _ in suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound},
+            suspendThresholdProvider: { _ in suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound },
             sensitivity: sensitivity.quantity(at: date),
             model: model
         )
@@ -531,7 +531,7 @@ extension Collection where Element: GlucoseValue {
         return nil
     }
     
-    /// Returns where an SMB should be considered. self should include pending insulin when it's a temp basal that is withdrawing insulin.
+    /// Returns where an SMB should be considered. self should include pending insulin when SMB is active, otherwise it shouldn't.
     /// This ensures that when SMB is already active, we will consider the current zero as continuing to being applied.
     ///
     /// - Parameters:
@@ -540,7 +540,6 @@ extension Collection where Element: GlucoseValue {
     ///   - suspendThreshold: A glucose value causing a result of false if any prediction falls below
     ///   - sensitivity: The schedule of insulin sensitivities
     ///   - model: The insulin absorption model
-    ///   - basalRates: The schedule of basal rates
     /// - Returns: Whether an SMB dose should be considered
     public func isEligibleForSuperMicroBolus(
         to correctionRange: GlucoseRangeSchedule,
@@ -548,7 +547,7 @@ extension Collection where Element: GlucoseValue {
         suspendThreshold: HKQuantity?,
         sensitivity: InsulinSensitivitySchedule,
         model: InsulinModel,
-        basalRates: BasalRateSchedule
+        timeAboveCorrectionRange: TimeInterval = TimeInterval(2 * 60 * 60) // 2 hours
     ) -> Bool {
         
         guard !self.isEmpty else {
@@ -561,7 +560,7 @@ extension Collection where Element: GlucoseValue {
         
         // Only consider predictions within the model's effect duration
         let validDateRange = DateInterval(start: date, duration: model.effectDuration)
-        let aboveRangePeriod = DateInterval(start: date, duration: .hours(2))
+        let aboveRangePeriod = DateInterval(start: date, duration: timeAboveCorrectionRange)
 
         let unit = correctionRange.unit
 
@@ -627,10 +626,17 @@ extension Collection where Element: GlucoseValue {
         continuationInterval: TimeInterval = TimeInterval(31 * 60)
         
     ) -> AutomaticDoseRecommendation? {
+        
+        guard rateRounder == nil || rateRounder!(0.0) == 0 else {
+            // pump must support a 0 temp basal
+            return nil
+        }
+        
+        // note the target starts from the upperBound for the first half of insulin duration and then goes down to 3/4 point
         guard let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
-            suspendThresholdProvider: { correctionRange.quantityRange(at: $0).lowerBound },
+            suspendThresholdProvider: { correctionRange.quantityRange(at: $0).upperBound },
             sensitivity: sensitivity.quantity(at: date),
             model: model
         ) else {
@@ -651,19 +657,21 @@ extension Collection where Element: GlucoseValue {
             maxBolusUnits: maxAutomaticBolus,
             volumeRounder: volumeRounder
         )
+        
+        let currBasal : Double
+        if let lastTempBasal = lastTempBasal, lastTempBasal.type == .tempBasal, lastTempBasal.endDate > date {
+            currBasal = lastTempBasal.unitsPerHour
+        } else {
+            currBasal = basalRates.value(at: date)
+        }
 
-        guard bolusUnits > 0 else {
+        guard bolusUnits > Swift.max(0, currBasal / 12) else {
             return nil
         }
         
-        var sumBasalRates = 0.0
-        for i in 0...5 {
-            let date = date.addingTimeInterval(.minutes(5 * Double(i)))
-            if let lastTempBasal = lastTempBasal, lastTempBasal.type == .tempBasal, lastTempBasal.endDate > date {
-                sumBasalRates += lastTempBasal.unitsPerHour
-            } else {
-                sumBasalRates += basalRates.value(at: date)
-            }
+        var sumBasalRates = currBasal
+        for i in 1...5 {
+            sumBasalRates += basalRates.value(at: date.addingTimeInterval(.minutes(5 * Double(i))))
         }
         
         // ensure we don't bolus more than what would be given in next 30 minutes
@@ -672,7 +680,7 @@ extension Collection where Element: GlucoseValue {
             return nil
         }
 
-        let temp = TempBasalRecommendation(unitsPerHour: rateRounder != nil ? rateRounder!(0.0) : 0.0, duration: duration)
+        let temp = TempBasalRecommendation(unitsPerHour: 0.0, duration: duration)
         let tempBasal = temp.ifNecessary(
             at: date,
             scheduledBasalRate: scheduledBasalRate,
