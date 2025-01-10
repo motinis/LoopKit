@@ -564,8 +564,6 @@ extension Collection where Element: GlucoseValue {
         let validDateRange = DateInterval(start: date, duration: model.effectDuration)
         let aboveRangePeriod = DateInterval(start: date, duration: timeAboveCorrectionRange)
 
-        let unit = correctionRange.unit
-
         for prediction in self {
             guard validDateRange.contains(prediction.startDate) else {
                 continue
@@ -670,14 +668,18 @@ extension Collection where Element: GlucoseValue {
         guard bolusUnits > Swift.max(0, currBasal / 12) else {
             return nil
         }
-        
-        var sumBasalRates = currBasal
-        for i in 1...5 {
-            sumBasalRates += basalRates.value(at: date.addingTimeInterval(.minutes(5 * Double(i))))
+
+        let lastDate = date.addingTimeInterval(.minutes(30))
+        var nextStartDate = date
+        var basalUnits = 0.0
+
+        for schedule in basalRates.between(start: nextStartDate, end: lastDate) {
+            basalUnits += Swift.min(schedule.endDate, lastDate).timeIntervalSince(nextStartDate).hours * schedule.value
+            nextStartDate = schedule.endDate
         }
         
         // ensure we don't bolus more than what would be given in next 30 minutes
-        bolusUnits = Swift.min(bolusUnits, (volumeRounder ?? {$0})(sumBasalRates / 12))
+        bolusUnits = Swift.min(bolusUnits, (volumeRounder ?? {$0})(basalUnits))
         guard bolusUnits > 0 else {
             return nil
         }
@@ -691,7 +693,7 @@ extension Collection where Element: GlucoseValue {
             scheduledBasalRateMatchesPump: !isBasalRateScheduleOverrideActive
         )
 
-        return AutomaticDoseRecommendation(basalAdjustment: temp, bolusUnits: bolusUnits)
+        return AutomaticDoseRecommendation(basalAdjustment: tempBasal, bolusUnits: bolusUnits)
     }
 
 
