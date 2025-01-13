@@ -533,8 +533,7 @@ extension Collection where Element: GlucoseValue {
         return nil
     }
     
-    /// Returns where an SMB should be considered. self should include pending insulin when SMB is active, otherwise it shouldn't.
-    /// This ensures that when SMB is already active, we will consider the current zero as continuing to being applied.
+    /// Returns where an SMB should be considered.
     ///
     /// - Parameters:
     ///   - correctionRange: The schedule of correction ranges
@@ -621,9 +620,8 @@ extension Collection where Element: GlucoseValue {
         lastTempBasal: DoseEntry?,
         volumeRounder: ((Double) -> Double)? = nil,
         rateRounder: ((Double) -> Double)? = nil,
-        isBasalRateScheduleOverrideActive: Bool = false,
         duration: TimeInterval = TimeInterval(60 * 60),
-        continuationInterval: TimeInterval = TimeInterval(31 * 60)
+        continuationInterval: TimeInterval = TimeInterval(41 * 60)
         
     ) -> AutomaticDoseRecommendation? {
         
@@ -669,33 +667,23 @@ extension Collection where Element: GlucoseValue {
             return nil
         }
 
-        let lastDate = date.addingTimeInterval(.minutes(30))
-        var nextStartDate = date
-        var basalUnits = 0.0
-
-        for schedule in basalRates.between(start: nextStartDate, end: lastDate) {
-            basalUnits += Swift.min(schedule.endDate, lastDate).timeIntervalSince(nextStartDate).hours * schedule.value
-            nextStartDate = schedule.endDate
-        }
-        
         // ensure we don't bolus more than what would be given in next 30 minutes
-        bolusUnits = Swift.min(bolusUnits, (volumeRounder ?? {$0})(basalUnits))
+        bolusUnits = Swift.min(bolusUnits, (volumeRounder ?? {$0})(basalRates.getBasalUnits(startDate: date, duration: .minutes(30))))
         guard bolusUnits > 0 else {
             return nil
         }
 
-        let temp = TempBasalRecommendation(unitsPerHour: 0.0, duration: duration)
-        let tempBasal = temp.ifNecessary(
-            at: date,
-            scheduledBasalRate: scheduledBasalRate,
-            lastTempBasal: lastTempBasal,
-            continuationInterval: continuationInterval,
-            scheduledBasalRateMatchesPump: !isBasalRateScheduleOverrideActive
-        )
+        let tempBasal : TempBasalRecommendation?
+
+        // for safety we enforce a 0 temp basal even if it would currently match the pump basal rate and there are no overrides
+        if let lastTempBasal = lastTempBasal, lastTempBasal.type == .tempBasal, lastTempBasal.unitsPerHour == 0.0, lastTempBasal.endDate.timeIntervalSince(date) > continuationInterval {
+            tempBasal = nil
+        } else {
+            tempBasal = TempBasalRecommendation(unitsPerHour: 0.0, duration: duration)
+        }
 
         return AutomaticDoseRecommendation(basalAdjustment: tempBasal, bolusUnits: bolusUnits)
     }
-
 
     /// Recommends a bolus to conform a glucose prediction timeline to a correction range
     ///

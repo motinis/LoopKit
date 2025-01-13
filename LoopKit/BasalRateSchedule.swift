@@ -39,3 +39,25 @@ public extension DailyValueSchedule where T == Double {
         return total
     }
 }
+
+public extension BasalRateSchedule {
+    /// Gets the number of units scheduled to be delivered
+    ///
+    /// - Parameters:
+    ///   - startDate: from when to start summing
+    ///   - duration: for how long to sum the basal units
+    /// - Returns: the number of units that would be deliver from date to date.addingTimeInterval(duration)
+    func getBasalUnits(startDate: Date, duration: TimeInterval) -> Double {
+        let endDate = startDate.addingTimeInterval(duration)
+        var nextStartDate = startDate
+        var basalUnits = 0.0
+
+        for schedule in self.between(start: nextStartDate, end: endDate) {
+            basalUnits += Swift.min(schedule.endDate, endDate).timeIntervalSince(nextStartDate).hours * schedule.value
+            nextStartDate = schedule.endDate
+        }
+        
+        return basalUnits
+    }
+
+}
