@@ -12,4 +12,7 @@ import HealthKit
 public protocol PreferencesProvider {
     var basalLockThreshold: HKQuantity { get set }
     var isBasalLockEnabled: Bool { get set }
+    var isCarbEntryExcluded: Bool { get set }
+    var isCobCorrectionExcluded: Bool { get set }
+    var isBgCorrectionExcluded: Bool { get set }
 }

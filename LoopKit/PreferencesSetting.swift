@@ -10,6 +10,7 @@ import Foundation
 
 public enum PreferencesSetting {
     case basalLock
+    case mealRecommendationPreferences
 }
 
 extension PreferencesSetting: Equatable { }
@@ -19,7 +20,11 @@ public extension PreferencesSetting {
         switch self {
         case .basalLock:
             return LocalizedString("Basal Lock", comment: "Title text for basal lock setting")
+        case .mealRecommendationPreferences:
+            return LocalizedString("Meal Entry Preference", comment: "Title text for meal entry preferences")
         }
+    
+
     }
     
     var smallTitle: String {
@@ -30,6 +35,8 @@ public extension PreferencesSetting {
         switch self {
         case .basalLock:
             return String(format: LocalizedString("Basal Lock prevents the basal rate from being throttled if the blood glucose is above a certain level.", comment: "Descriptive text for basal lock (1: app name)"), appName)
+        case .mealRecommendationPreferences:
+            return String(format: LocalizedString("Meal Entry Preferences allow selective choice of what effect to include by default for bolus recommendation", comment: "Descriptive text for meal entry preferences for (1: app name)"), appName)
         }
     }
 }
@@ -40,6 +47,8 @@ public extension PreferencesSetting {
         switch self {
         case .basalLock:
             return LocalizedString("The value you have entered is lower than what is typically recommended.", comment: "Descriptive text for guardrail low value warning for basal lock")
+        case .mealRecommendationPreferences:
+            return LocalizedString("The value you have entered is lower than what is typically recommended.", comment: "Descriptive text for guardrail low value warning for basal lock")
         }
     }
     
@@ -47,6 +56,8 @@ public extension PreferencesSetting {
         switch self {
         case .basalLock:
             return LocalizedString("The value you have entered is higher than what is typically recommended.", comment: "Descriptive text for guardrail high value warning for basal lock")
+        case .mealRecommendationPreferences:
+            return LocalizedString("The value you have entered is lower than what is typically recommended.", comment: "Descriptive text for guardrail low value warning for basal lock")
         }
     }
     

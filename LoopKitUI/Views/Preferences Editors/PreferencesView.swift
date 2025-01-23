@@ -86,7 +86,8 @@ extension PreferencesView {
         var cards: [Card] = []
         
         cards.append(basalLockSection)
-        
+        cards.append(mealRecommendationPreferenceSection)
+
         return CardStack(cards: cards)
     }
     
@@ -94,6 +95,9 @@ extension PreferencesView {
     func screen(for setting: PreferencesSetting, dismiss: @escaping () -> Void) -> some View {
         switch setting {
         case .basalLock:
+            BasalLockEditor(preferencesViewModel: viewModel, didSave: dismiss)
+        case .mealRecommendationPreferences:
+            // TODO - get a mealRecommendationPreferenceEditor
             BasalLockEditor(preferencesViewModel: viewModel, didSave: dismiss)
         }
     }
@@ -131,7 +135,22 @@ extension PreferencesView {
             }
         }
     }
+
+    private var mealRecommendationPreferenceSection: Card {
+        card(for: .mealRecommendationPreferences) {
+            SectionDivider()
+            HStack {
+                Spacer()
+                HStack(alignment: .firstTextBaseline) {
+                    Text(formatter.string(for: viewModel.basalLockThreshold.doubleValue(for: displayGlucosePreference.unit)) ?? "")
+                    Text(displayGlucosePreference.unit.shortLocalizedUnitString())
+                        .foregroundColor(Color(.secondaryLabel))
+                }
+            }
+        }
+    }
 }
+//mealRecommendationPreferenceEditor
 
 fileprivate struct SectionDivider: View {
     var body: some View {
