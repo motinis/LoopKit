@@ -139,12 +139,24 @@ extension PreferencesView {
     private var mealRecommendationPreferenceSection: Card {
         card(for: .mealRecommendationPreferences) {
             SectionDivider()
-            HStack {
+            VStack {
                 Spacer()
-                HStack(alignment: .firstTextBaseline) {
-                    Text(formatter.string(for: viewModel.basalLockThreshold.doubleValue(for: displayGlucosePreference.unit)) ?? "")
-                    Text(displayGlucosePreference.unit.shortLocalizedUnitString())
-                        .foregroundColor(Color(.secondaryLabel))
+                if viewModel.isCarbEntryExcluded {
+                    Text("Carb Entry is Excluded")
+                } else {
+                    Text("Carb Entry is Included")
+                }
+                Spacer()
+                if viewModel.isCobCorrectionExcluded {
+                    Text("COB Correction is Excluded")
+                } else {
+                    Text("COB Correction is Included")
+                }
+                Spacer()
+                if viewModel.isBgCorrectionExcluded {
+                    Text("Glucose Correction is Excluded")
+                } else {
+                    Text("Glucose Correction is Included")
                 }
             }
         }
@@ -158,3 +170,4 @@ fileprivate struct SectionDivider: View {
             .padding(.trailing, -16)
     }
 }
+

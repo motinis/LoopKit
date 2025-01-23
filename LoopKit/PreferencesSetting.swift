@@ -36,7 +36,7 @@ public extension PreferencesSetting {
         case .basalLock:
             return String(format: LocalizedString("Basal Lock prevents the basal rate from being throttled if the blood glucose is above a certain level.", comment: "Descriptive text for basal lock (1: app name)"), appName)
         case .mealRecommendationPreferences:
-            return String(format: LocalizedString("Meal Entry Preferences allow selective choice of what effect to include by default for bolus recommendation", comment: "Descriptive text for meal entry preferences for (1: app name)"), appName)
+            return String(format: LocalizedString("Meal Entry Preferences allows selective choice of what effects to include by default for bolus recommendation", comment: "Descriptive text for meal entry preferences for (1: app name)"), appName)
         }
     }
 }
@@ -48,7 +48,7 @@ public extension PreferencesSetting {
         case .basalLock:
             return LocalizedString("The value you have entered is lower than what is typically recommended.", comment: "Descriptive text for guardrail low value warning for basal lock")
         case .mealRecommendationPreferences:
-            return LocalizedString("The value you have entered is lower than what is typically recommended.", comment: "Descriptive text for guardrail low value warning for basal lock")
+            return LocalizedString("", comment: "")
         }
     }
     
@@ -57,7 +57,7 @@ public extension PreferencesSetting {
         case .basalLock:
             return LocalizedString("The value you have entered is higher than what is typically recommended.", comment: "Descriptive text for guardrail high value warning for basal lock")
         case .mealRecommendationPreferences:
-            return LocalizedString("The value you have entered is lower than what is typically recommended.", comment: "Descriptive text for guardrail low value warning for basal lock")
+            return LocalizedString("", comment: "")
         }
     }
     
