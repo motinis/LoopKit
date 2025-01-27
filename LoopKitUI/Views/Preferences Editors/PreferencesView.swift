@@ -97,8 +97,7 @@ extension PreferencesView {
         case .basalLock:
             BasalLockEditor(preferencesViewModel: viewModel, didSave: dismiss)
         case .mealRecommendationPreferences:
-            // TODO - get a mealRecommendationPreferenceEditor
-            BasalLockEditor(preferencesViewModel: viewModel, didSave: dismiss)
+            MealRecommendationPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
         }
     }
     
@@ -139,25 +138,22 @@ extension PreferencesView {
     private var mealRecommendationPreferenceSection: Card {
         card(for: .mealRecommendationPreferences) {
             SectionDivider()
-            VStack {
-                Spacer()
-                if viewModel.isCarbEntryExcluded {
-                    Text("Carb Entry is Excluded")
-                } else {
-                    Text("Carb Entry is Included")
-                }
-                Spacer()
-                if viewModel.isCobCorrectionExcluded {
-                    Text("COB Correction is Excluded")
-                } else {
-                    Text("COB Correction is Included")
-                }
-                Spacer()
-                if viewModel.isBgCorrectionExcluded {
-                    Text("Glucose Correction is Excluded")
-                } else {
-                    Text("Glucose Correction is Included")
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                checkmarkRow(title: "Carb Entry", included: !viewModel.isCarbEntryExcluded)
+                checkmarkRow(title: "COB Correction", included: !viewModel.isCobCorrectionExcluded)
+                checkmarkRow(title: "Glucose Correction", included: !viewModel.isBgCorrectionExcluded)
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func checkmarkRow(title: String, included: Bool) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            if included {
+                Image(systemName: "checkmark")
+                    .foregroundColor(.gray)
             }
         }
     }
