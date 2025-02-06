@@ -74,7 +74,7 @@ public struct MealRecommendationPreferenceEditor: View {
 
     private var content: some View {
         ConfigurationPage(
-            title: Text(LocalizedString("Meal Entry Preferences", comment: "Title for Meal Recommendation Preferences editor")),
+            title: Text(LocalizedString("Meal Bolus Options", comment: "Title for Meal Bolus Options editor")),
             actionButtonTitle: Text(LocalizedString("Save", comment: "Save button title")),
             actionButtonState: saveButtonState,
             cards: {
@@ -109,7 +109,7 @@ public struct MealRecommendationPreferenceEditor: View {
     private var description: Text {
         Text(
             LocalizedString(
-                "Meal Entry Preferences allow you to choose which effects are included by default for bolus recommendations.",
+                "Meal Bolus Options allow you to choose which effects are included by default for bolus recommendations.",
                 comment: "Description for Meal Recommendation Preference Editor"
             )
         )
