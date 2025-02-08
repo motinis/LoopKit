@@ -11,11 +11,11 @@ import LoopKit
 import HealthKit
 
 public class PreferencesViewModel: ObservableObject {
-    @Published var basalLockThreshold: HKQuantity
-    @Published var isBasalLockEnabled: Bool
-    @Published var isCarbEntryExcluded: Bool
-    @Published var isCobCorrectionExcluded: Bool
-    @Published var isBgCorrectionExcluded: Bool
+    @Published public var basalLockThreshold: HKQuantity
+    @Published public var isBasalLockEnabled: Bool
+    @Published public var isCarbEntryExcluded: Bool
+    @Published public var isCobCorrectionExcluded: Bool
+    @Published public var isBgCorrectionExcluded: Bool
 
     private var preferencesProvider: PreferencesProvider
     
@@ -28,27 +28,27 @@ public class PreferencesViewModel: ObservableObject {
         self.isBgCorrectionExcluded = preferencesProvider.isBgCorrectionExcluded
     }
     
-    func updateBasalLockThreshold(_ newValue: HKQuantity) {
+    public func updateBasalLockThreshold(_ newValue: HKQuantity) {
         preferencesProvider.basalLockThreshold = newValue
         self.basalLockThreshold = newValue
     }
     
-    func updateBasalLockEnabled(_ newValue: Bool) {
+    public func updateBasalLockEnabled(_ newValue: Bool) {
         preferencesProvider.isBasalLockEnabled = newValue
         self.isBasalLockEnabled = newValue
     }
     
-    func updateCarbEntryExcluded(_ newValue: Bool) {
+    public func updateCarbEntryExcluded(_ newValue: Bool) {
         preferencesProvider.isCarbEntryExcluded = newValue
         self.isCarbEntryExcluded = newValue
     }
     
-    func updateCobCorrectionExcluded(_ newValue: Bool) {
+    public func updateCobCorrectionExcluded(_ newValue: Bool) {
         preferencesProvider.isCobCorrectionExcluded = newValue
         self.isCobCorrectionExcluded = newValue
     }
 
-    func updateBgCorrectionExcluded(_ newValue: Bool) {
+    public func updateBgCorrectionExcluded(_ newValue: Bool) {
         preferencesProvider.isBgCorrectionExcluded = newValue
         self.isBgCorrectionExcluded = newValue
     }
