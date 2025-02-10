@@ -18,26 +18,26 @@ public struct MealRecommendationPreferenceEditor: View {
     let viewModel: PreferencesViewModel
     let didSave: (() -> Void)?
 
-    @State private var isCarbExcluded: Bool
-    @State private var isCOBExcluded: Bool
-    @State private var isBGCorrectionExcluded: Bool
+    @State private var isCarbIncluded: Bool
+    @State private var isCOBIncluded: Bool
+    @State private var isBGCorrectionIncluded: Bool
 
-    private var initialCarbExcluded: Bool {
-        viewModel.isCarbEntryExcluded
+    private var initialCarbIncluded: Bool {
+        !viewModel.isCarbEntryExcluded
     }
-    private var initialCobExcluded: Bool {
-        viewModel.isCobCorrectionExcluded
+    private var initialCobIncluded: Bool {
+        !viewModel.isCobCorrectionExcluded
     }
-    private var initialBgExcluded: Bool {
-        viewModel.isBgCorrectionExcluded
+    private var initialBgIncluded: Bool {
+        !viewModel.isBgCorrectionExcluded
     }
 
     public init(preferencesViewModel: PreferencesViewModel, didSave: (() -> Void)? = nil) {
         self.viewModel = preferencesViewModel
         self.didSave = didSave
-        _isCarbExcluded = State(initialValue: preferencesViewModel.isCarbEntryExcluded)
-        _isCOBExcluded = State(initialValue: preferencesViewModel.isCobCorrectionExcluded)
-        _isBGCorrectionExcluded = State(initialValue: preferencesViewModel.isBgCorrectionExcluded)
+        _isCarbIncluded = State(initialValue: !preferencesViewModel.isCarbEntryExcluded)
+        _isCOBIncluded = State(initialValue: !preferencesViewModel.isCobCorrectionExcluded)
+        _isBGCorrectionIncluded = State(initialValue: !preferencesViewModel.isBgCorrectionExcluded)
     }
 
     public var body: some View {
@@ -48,9 +48,9 @@ public struct MealRecommendationPreferenceEditor: View {
     private var contentWithCancel: some View {
         content
             .navigationBarBackButtonHidden(
-                isCarbExcluded != initialCarbExcluded
-                || isCOBExcluded != initialCobExcluded
-                || isBGCorrectionExcluded != initialBgExcluded
+                isCarbIncluded != initialCarbIncluded
+                || isCOBIncluded != initialCobIncluded
+                || isBGCorrectionIncluded != initialBgIncluded
             )
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -61,9 +61,9 @@ public struct MealRecommendationPreferenceEditor: View {
 
     @ViewBuilder
     private var leadingNavigationBarItem: some View {
-        if isCarbExcluded != initialCarbExcluded
-            || isCOBExcluded != initialCobExcluded
-            || isBGCorrectionExcluded != initialBgExcluded {
+        if isCarbIncluded != initialCarbIncluded
+            || isCOBIncluded != initialCobIncluded
+            || isBGCorrectionIncluded != initialBgIncluded {
             Button(action: { dismiss() }) {
                 Text(LocalizedString("Cancel", comment: "Cancel editing settings button title"))
             }
@@ -84,9 +84,9 @@ public struct MealRecommendationPreferenceEditor: View {
                         .foregroundColor(Color(.secondaryLabel))
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Toggle("Exclude Carb Entry by Default", isOn: $isCarbExcluded)
-                    Toggle("Exclude COB Correction by Default", isOn: $isCOBExcluded)
-                    Toggle("Exclude Glucose Correction by Default", isOn: $isBGCorrectionExcluded)
+                    Toggle("Include Carb Entry by Default", isOn: $isCarbIncluded)
+                    Toggle("Include COB Correction by Default", isOn: $isCOBIncluded)
+                    Toggle("Include Glucose Correction by Default", isOn: $isBGCorrectionIncluded)
                 }
             },
             actionAreaContent: {
@@ -98,9 +98,9 @@ public struct MealRecommendationPreferenceEditor: View {
     }
 
     private var saveButtonState: ConfigurationPageActionButtonState {
-        if isCarbExcluded != initialCarbExcluded
-            || isCOBExcluded != initialCobExcluded
-            || isBGCorrectionExcluded != initialBgExcluded {
+        if isCarbIncluded != initialCarbIncluded
+            || isCOBIncluded != initialCobIncluded
+            || isBGCorrectionIncluded != initialBgIncluded {
             return .enabled
         }
         return .disabled
@@ -109,7 +109,7 @@ public struct MealRecommendationPreferenceEditor: View {
     private var description: Text {
         Text(
             LocalizedString(
-                "Meal Bolus Options allow you to choose which effects are included by default for bolus recommendations.",
+                "Meal Bolus Options allow you to choose which effects are included by default for bolus recommendations. Excluded effects are summed with the negative Max Bolus Limit and Glucose Safety Theshold values. If the sum is positive, then they are all excluded. Otherwise, the effects are already covered, and no exclusion is necessary.",
                 comment: "Description for Meal Recommendation Preference Editor"
             )
         )
@@ -127,9 +127,9 @@ public struct MealRecommendationPreferenceEditor: View {
     }
 
     private func continueSaving() {
-        viewModel.updateCarbEntryExcluded(isCarbExcluded)
-        viewModel.updateCobCorrectionExcluded(isCOBExcluded)
-        viewModel.updateBgCorrectionExcluded(isBGCorrectionExcluded)
+        viewModel.updateCarbEntryExcluded(!isCarbIncluded)
+        viewModel.updateCobCorrectionExcluded(!isCOBIncluded)
+        viewModel.updateBgCorrectionExcluded(!isBGCorrectionIncluded)
         didSave?()
         dismiss()
     }
