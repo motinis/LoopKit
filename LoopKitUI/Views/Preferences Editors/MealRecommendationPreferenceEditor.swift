@@ -74,7 +74,7 @@ public struct MealRecommendationPreferenceEditor: View {
 
     private var content: some View {
         ConfigurationPage(
-            title: Text(LocalizedString("Meal Bolus Options", comment: "Title for Meal Bolus Options editor")),
+            title: Text(LocalizedString("Meal Bolus Defaults", comment: "Title for Meal Bolus Defaults editor")),
             actionButtonTitle: Text(LocalizedString("Save", comment: "Save button title")),
             actionButtonState: saveButtonState,
             cards: {
@@ -84,15 +84,15 @@ public struct MealRecommendationPreferenceEditor: View {
                         .foregroundColor(Color(.secondaryLabel))
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Toggle("Include Carb Entry by Default", isOn: $isCarbIncluded)
-                    Toggle("Include COB Correction by Default", isOn: $isCOBIncluded)
-                    Toggle("Include Glucose Correction by Default", isOn: $isBGCorrectionIncluded)
+                    Toggle("Include Carb Entry", isOn: $isCarbIncluded)
+                    Toggle("Include COB Correction", isOn: $isCOBIncluded)
+                    Toggle("Include Glucose Correction", isOn: $isBGCorrectionIncluded)
                 }
             },
             actionAreaContent: {
             },
             action: {
-                startSaving()
+                finishSaving()
             }
         )
     }
@@ -109,24 +109,13 @@ public struct MealRecommendationPreferenceEditor: View {
     private var description: Text {
         Text(
             LocalizedString(
-                "Meal Bolus Options allow you to choose which effects are included by default for bolus recommendations. Excluded effects are summed with the negative Max Bolus Limit and Glucose Safety Theshold values. If the sum is positive, then they are all excluded. Otherwise, the effects are already covered, and no exclusion is necessary.",
+                "Meal Bolus Defaults allow you to choose which effects are included by default for bolus recommendations. Excluded effects are summed with the negative Max Bolus Limit and Glucose Safety Theshold values. If the sum is positive, then they are all excluded. Otherwise, the effects are already covered, and no exclusion is necessary.",
                 comment: "Description for Meal Recommendation Preference Editor"
             )
         )
     }
 
-    private func startSaving() {
-        authenticate(LocalizedString("Authentication is required to save these settings.", comment: "Authentication challenge description for meal preferences")) {
-            switch $0 {
-            case .success:
-                continueSaving()
-            case .failure:
-                break
-            }
-        }
-    }
-
-    private func continueSaving() {
+    private func finishSaving() {
         viewModel.updateCarbEntryExcluded(!isCarbIncluded)
         viewModel.updateCobCorrectionExcluded(!isCOBIncluded)
         viewModel.updateBgCorrectionExcluded(!isBGCorrectionIncluded)

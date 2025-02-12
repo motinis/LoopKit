@@ -21,7 +21,7 @@ public extension PreferencesSetting {
         case .basalLock:
             return LocalizedString("Basal Lock", comment: "Title text for basal lock setting")
         case .mealRecommendationPreferences:
-            return LocalizedString("Meal Bolus Options", comment: "Title text for Meal Bolus Options")
+            return LocalizedString("Meal Bolus Defaults", comment: "Title text for Meal Bolus Defaults")
         }
     
 
@@ -36,7 +36,7 @@ public extension PreferencesSetting {
         case .basalLock:
             return String(format: LocalizedString("Basal Lock prevents the basal rate from being throttled if the blood glucose is above a certain level.", comment: "Descriptive text for basal lock (1: app name)"), appName)
         case .mealRecommendationPreferences:
-            return String(format: LocalizedString("Allows user to choose whether to include these effects for initial Bolus recommendation at meal entry. By default, Loop includes these carbohydrate and glucose effects.", comment: "Descriptive text for Meal Bolus Options for (1: app name)"), appName)
+            return String(format: LocalizedString("Allows user to choose whether to include these effects for initial Bolus recommendation at meal entry. By default, Loop includes these carbohydrate and glucose effects.", comment: "Descriptive text for Meal Bolus Defaults for (1: app name)"), appName)
         }
     }
 }
