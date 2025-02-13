@@ -87,6 +87,7 @@ extension PreferencesView {
         
         cards.append(basalLockSection)
         cards.append(mealRecommendationPreferenceSection)
+        cards.append(insulinModelPreferenceSection)
 
         return CardStack(cards: cards)
     }
@@ -98,6 +99,8 @@ extension PreferencesView {
             BasalLockEditor(preferencesViewModel: viewModel, didSave: dismiss)
         case .mealRecommendationPreferences:
             MealRecommendationPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
+        case .insulinModelPreferences:
+            InsulinModelPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
         }
     }
     
@@ -146,6 +149,17 @@ extension PreferencesView {
             .padding(.vertical, 8)
         }
     }
+    
+    private var insulinModelPreferenceSection: Card {
+        card(for: .insulinModelPreferences) {
+            SectionDivider()
+            VStack(alignment: .leading, spacing: 8) {
+                checkmarkRow(title: "Rapid Acting Child", included: viewModel.useRapidActingChildInsulinModel)
+                checkmarkRow(title: "Fast Lyumjev", included: viewModel.useFastLyumjevInsulinModel)
+            }
+            .padding(.vertical, 8)
+        }
+    }
 
     private func checkmarkRow(title: String, included: Bool) -> some View {
         HStack {
@@ -158,7 +172,6 @@ extension PreferencesView {
         }
     }
 }
-//mealRecommendationPreferenceEditor
 
 fileprivate struct SectionDivider: View {
     var body: some View {

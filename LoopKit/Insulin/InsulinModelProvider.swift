@@ -47,4 +47,20 @@ public struct StaticInsulinModelProvider: InsulinModelProvider {
     }
 }
 
+public struct OverridingInsulinModelProvider: InsulinModelProvider {
+    var delegate: InsulinModelProvider
+    var overrideProvider: (InsulinType?) -> InsulinModel?
+    
+    public init(_ delegate: InsulinModelProvider, _ overrideProvider: @escaping (InsulinType?) -> InsulinModel?) {
+        self.delegate = delegate
+        self.overrideProvider = overrideProvider
+    }
+    
+    public func model(for type: InsulinType?) -> any InsulinModel {
+        if let result = overrideProvider(type) {
+            return result
+        }
+        return delegate.model(for: type)
+    }
+}
 

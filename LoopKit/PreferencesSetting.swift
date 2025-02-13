@@ -11,6 +11,7 @@ import Foundation
 public enum PreferencesSetting {
     case basalLock
     case mealRecommendationPreferences
+    case insulinModelPreferences
 }
 
 extension PreferencesSetting: Equatable { }
@@ -22,9 +23,9 @@ public extension PreferencesSetting {
             return LocalizedString("Basal Lock", comment: "Title text for basal lock setting")
         case .mealRecommendationPreferences:
             return LocalizedString("Meal Bolus Defaults", comment: "Title text for Meal Bolus Defaults")
+        case .insulinModelPreferences:
+            return LocalizedString("Insulin Model Options", comment: "Title text for Insulin Model Options")
         }
-    
-
     }
     
     var smallTitle: String {
@@ -37,6 +38,8 @@ public extension PreferencesSetting {
             return String(format: LocalizedString("Basal Lock prevents the basal rate from being throttled if the blood glucose is above a certain level.", comment: "Descriptive text for basal lock (1: app name)"), appName)
         case .mealRecommendationPreferences:
             return String(format: LocalizedString("Allows user to choose whether to include these effects for initial Bolus recommendation at meal entry. By default, Loop includes these carbohydrate and glucose effects.", comment: "Descriptive text for Meal Bolus Defaults for (1: app name)"), appName)
+        case .insulinModelPreferences:
+            return String(format: LocalizedString("Allows user to choose alternative insulin model behaviors", comment: "Descriptive text for Insulin Model Preferences for (1: app name)"), appName)
         }
     }
 }
@@ -49,6 +52,8 @@ public extension PreferencesSetting {
             return LocalizedString("The value you have entered is lower than what is typically recommended.", comment: "Descriptive text for guardrail low value warning for basal lock")
         case .mealRecommendationPreferences:
             return LocalizedString("", comment: "")
+        case .insulinModelPreferences:
+            return LocalizedString("", comment: "")
         }
     }
     
@@ -57,6 +62,8 @@ public extension PreferencesSetting {
         case .basalLock:
             return LocalizedString("The value you have entered is higher than what is typically recommended.", comment: "Descriptive text for guardrail high value warning for basal lock")
         case .mealRecommendationPreferences:
+            return LocalizedString("", comment: "")
+        case .insulinModelPreferences:
             return LocalizedString("", comment: "")
         }
     }

@@ -16,6 +16,8 @@ public class PreferencesViewModel: ObservableObject {
     @Published public var isCarbEntryExcluded: Bool
     @Published public var isCobCorrectionExcluded: Bool
     @Published public var isBgCorrectionExcluded: Bool
+    @Published public var useRapidActingChildInsulinModel: Bool
+    @Published public var useFastLyumjevInsulinModel: Bool
 
     private var preferencesProvider: PreferencesProvider
     
@@ -26,6 +28,8 @@ public class PreferencesViewModel: ObservableObject {
         self.isCarbEntryExcluded = preferencesProvider.isCarbEntryExcluded
         self.isCobCorrectionExcluded = preferencesProvider.isCobCorrectionExcluded
         self.isBgCorrectionExcluded = preferencesProvider.isBgCorrectionExcluded
+        self.useRapidActingChildInsulinModel = preferencesProvider.useRapidActingChildInsulinModel
+        self.useFastLyumjevInsulinModel = preferencesProvider.useFastLyumjevInsulinModel
     }
     
     public func updateBasalLockThreshold(_ newValue: HKQuantity) {
@@ -51,5 +55,15 @@ public class PreferencesViewModel: ObservableObject {
     public func updateBgCorrectionExcluded(_ newValue: Bool) {
         preferencesProvider.isBgCorrectionExcluded = newValue
         self.isBgCorrectionExcluded = newValue
+    }
+    
+    public func updateUseRapidActingChildInsulinModel(_ newValue: Bool) {
+        preferencesProvider.useRapidActingChildInsulinModel = newValue
+        self.useRapidActingChildInsulinModel = newValue
+    }
+    
+    public func updateUseFastLyumjevInsulinModel(_ newValue: Bool) {
+        preferencesProvider.useFastLyumjevInsulinModel = newValue
+        self.useFastLyumjevInsulinModel = newValue
     }
 }

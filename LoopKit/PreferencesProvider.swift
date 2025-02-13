@@ -15,4 +15,6 @@ public protocol PreferencesProvider {
     var isCarbEntryExcluded: Bool { get set }
     var isCobCorrectionExcluded: Bool { get set }
     var isBgCorrectionExcluded: Bool { get set }
+    var useRapidActingChildInsulinModel: Bool { get set }
+    var useFastLyumjevInsulinModel: Bool { get set }
 }
