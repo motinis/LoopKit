@@ -234,7 +234,7 @@ extension Collection where Element: GlucoseValue {
         suspendThreshold: HKQuantity,
         sensitivity: HKQuantity,
         model: InsulinModel,
-        preferences: PreferencesProvider
+        preferences: PreferencesProvider? = nil
     ) -> InsulinCorrection? {
         let effectDuration = model.effectDuration
         let timeline = [AbsoluteScheduleValue(startDate: date, endDate: date.addingTimeInterval(effectDuration), value: sensitivity)]
@@ -263,7 +263,7 @@ extension Collection where Element: GlucoseValue {
         suspendThreshold: HKQuantity,
         insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
         model: InsulinModel,
-        preferences: PreferencesProvider
+        preferences: PreferencesProvider?
     ) -> InsulinCorrection? {
         var minGlucose: GlucoseValue?
         var eventualGlucose: GlucoseValue?
@@ -408,7 +408,7 @@ extension Collection where Element: GlucoseValue {
         isBasalRateScheduleOverrideActive: Bool = false,
         duration: TimeInterval = TimeInterval(30 * 60),
         continuationInterval: TimeInterval = TimeInterval(60 * 11),
-        preferences: PreferencesProvider
+        preferences: PreferencesProvider? = nil
     ) -> TempBasalRecommendation? {
         let correction = self.insulinCorrection(
             to: correctionRange,
@@ -441,13 +441,15 @@ extension Collection where Element: GlucoseValue {
             rateRounder: rateRounder
         )
 
-        if (preferences.isBasalLockEnabled && ( temp?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate  ||
-             lastTempBasal?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate
-             ) &&
-            self[0 as! Self.Index].quantity > preferences.basalLockThreshold)
-        {
-            print("####### Temp Basal Lock On #########")
-            temp = TempBasalRecommendation(unitsPerHour: scheduledBasalRate, duration: 1800)
+        if let preferences = preferences {
+            if (preferences.isBasalLockEnabled && ( temp?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate  ||
+                                                    lastTempBasal?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate
+                                                  ) &&
+                self[0 as! Self.Index].quantity > preferences.basalLockThreshold)
+            {
+                print("####### Temp Basal Lock On #########")
+                temp = TempBasalRecommendation(unitsPerHour: scheduledBasalRate, duration: 1800)
+            }
         }
 
         return temp?.ifNecessary(
@@ -492,7 +494,7 @@ extension Collection where Element: GlucoseValue {
         isBasalRateScheduleOverrideActive: Bool = false,
         duration: TimeInterval = TimeInterval(30 * 60),
         continuationInterval: TimeInterval = TimeInterval(11 * 60),
-        preferences: PreferencesProvider
+        preferences: PreferencesProvider? = nil
     ) -> AutomaticDoseRecommendation? {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
@@ -535,13 +537,15 @@ extension Collection where Element: GlucoseValue {
             volumeRounder: volumeRounder
         )
 
-        if (preferences.isBasalLockEnabled && (temp?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate ||
-              lastTempBasal?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate
-              ) &&
-            self[0 as! Self.Index].quantity > preferences.basalLockThreshold)
-        {
-            print("####### Temp Basal Lock On #########")
-            temp = TempBasalRecommendation(unitsPerHour: scheduledBasalRate, duration: 1800)
+        if let preferences = preferences {
+            if (preferences.isBasalLockEnabled && (temp?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate ||
+                                                   lastTempBasal?.unitsPerHour ?? scheduledBasalRate < scheduledBasalRate
+                                                  ) &&
+                self[0 as! Self.Index].quantity > preferences.basalLockThreshold)
+            {
+                print("####### Temp Basal Lock On #########")
+                temp = TempBasalRecommendation(unitsPerHour: scheduledBasalRate, duration: 1800)
+            }
         }
 
         if temp != nil || bolusUnits > 0 {
@@ -573,7 +577,7 @@ extension Collection where Element: GlucoseValue {
         pendingInsulin: Double,
         maxBolus: Double,
         volumeRounder: ((Double) -> Double)? = nil,
-        preferences: PreferencesProvider
+        preferences: PreferencesProvider? = nil
     ) -> ManualBolusRecommendation {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
