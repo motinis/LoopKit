@@ -54,19 +54,16 @@ public final class AddEditOverrideTableViewController: UITableViewController {
             case .newPreset:
                 symbol = nil
                 name = nil
-                configure(with: TemporaryScheduleOverrideSettings())
-                duration = .finite(.defaultOverrideDuration)
+                configure(with: TemporaryScheduleOverrideSettings(), duration: .finite(.defaultOverrideDuration))
             case .editPreset(let preset), .customizePresetOverride(let preset):
                 symbol = preset.symbol
                 name = preset.name
-                configure(with: preset.settings)
-                duration = preset.duration
+                configure(with: preset.settings, duration: preset.duration)
             case .customOverride:
                 symbol = nil
                 name = nil
-                configure(with: TemporaryScheduleOverrideSettings())
+                configure(with: TemporaryScheduleOverrideSettings(), duration: .finite(.defaultOverrideDuration))
                 startDate = Date()
-                duration = .finite(.defaultOverrideDuration)
             case .editOverride(let override):
                 if case .preset(let preset) = override.context {
                     symbol = preset.symbol
@@ -75,9 +72,8 @@ public final class AddEditOverrideTableViewController: UITableViewController {
                     symbol = nil
                     name = nil
                 }
-                configure(with: override.settings)
+                configure(with: override.settings, duration: override.duration)
                 startDate = override.startDate
-                duration = override.duration
                 enactTrigger = override.enactTrigger
                 syncIdentifier = override.syncIdentifier
             case .viewOverride(let override):
@@ -88,9 +84,8 @@ public final class AddEditOverrideTableViewController: UITableViewController {
                     symbol = nil
                     name = nil
                 }
-                configure(with: override.settings)
+                configure(with: override.settings, duration: override.duration)
                 startDate = override.startDate
-                duration = override.duration
                 syncIdentifier = override.syncIdentifier
             }
         }
@@ -118,13 +113,15 @@ public final class AddEditOverrideTableViewController: UITableViewController {
 
     private var startDate = Date()
 
-    private var duration: TemporaryScheduleOverride.Duration = .finite(.defaultOverrideDuration)
+    private var duration: TemporaryScheduleOverride.Duration = .finite(.defaultOverrideDuration) { didSet {updateSaveButtonEnabled()}}
     
     private var enactTrigger: TemporaryScheduleOverride.EnactTrigger = .local
 
     private var syncIdentifier = UUID()
     
+    private let defaultSettings = TemporaryScheduleOverrideSettings()
     private var initialSettings: TemporaryScheduleOverrideSettings?
+    private var initialDuration: TemporaryScheduleOverride.Duration?
     
     private var isConfiguringPreset: Bool {
         switch inputMode {
@@ -135,9 +132,10 @@ public final class AddEditOverrideTableViewController: UITableViewController {
         }
     }
 
-    private func configure(with settings: TemporaryScheduleOverrideSettings) {
+    private func configure(with settings: TemporaryScheduleOverrideSettings, duration: TemporaryScheduleOverride.Duration) {
         if self.initialSettings == nil {
             self.initialSettings = settings
+            self.initialDuration = duration
         }
         if let targetRange = settings.targetRange {
             self.targetRange = DoubleRange(minValue: targetRange.lowerBound.doubleValue(for: glucoseUnit), maxValue: targetRange.upperBound.doubleValue(for: glucoseUnit))
@@ -146,6 +144,7 @@ public final class AddEditOverrideTableViewController: UITableViewController {
         }
         insulinNeedsScaleFactor = settings.effectiveInsulinNeedsScaleFactor
         autoBolusCarbsActive = AutoBolusCarbOptions.from(settings.autoBolusCarbsActive)
+        self.duration = duration
     }
 
     // MARK: - Initialization & view life cycle
@@ -525,25 +524,20 @@ extension AddEditOverrideTableViewController {
             }
         }
         
-        let result = TemporaryScheduleOverrideSettings(
+        return TemporaryScheduleOverrideSettings(
             unit: glucoseUnit,
             targetRange: targetRange,
             insulinNeedsScaleFactor: insulinNeedsScaleFactor == 1.0 ? nil : insulinNeedsScaleFactor,
             autoBolusCarbsActive: autoBolusCarbsActive.asBool
         )
-        
-        guard result != initialSettings else {
-            return nil
-        }
-
-        return result
-    }
+}
 
     private var configuredPreset: TemporaryScheduleOverridePreset? {
         guard
             let symbol = symbol, !symbol.isEmpty,
             let name = name, !name.isEmpty,
-            let settings = configuredSettings
+            let settings = configuredSettings,
+            settings != initialSettings || (settings != defaultSettings && duration != initialDuration)
         else {
             return nil
         }
@@ -559,7 +553,8 @@ extension AddEditOverrideTableViewController {
     }
 
     private var configuredOverride: TemporaryScheduleOverride? {
-        guard let settings = configuredSettings else {
+        guard let settings = configuredSettings,
+              settings != initialSettings || (settings != defaultSettings && duration != initialDuration) else {
             return nil
         }
 
