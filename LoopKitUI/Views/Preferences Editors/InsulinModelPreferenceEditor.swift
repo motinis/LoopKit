@@ -86,7 +86,7 @@ public struct InsulinModelPreferenceEditor: View {
             actionAreaContent: {
             },
             action: {
-                continueSaving()
+                startSaving()
             }
         )
     }
