@@ -19,9 +19,13 @@ public struct InsulinModelPreferenceEditor: View {
     let viewModel: PreferencesViewModel
     
     let didSave: (() -> Void)?
+    @State private var useNewChildInsulinModel: Bool
     @State private var useRapidActingChildInsulinModel: Bool
     @State private var useFastLyumjevInsulinModel: Bool
 
+    private var initialUseNewChildInsulinModel: Bool {
+        viewModel.useNewChildInsulinModel
+    }
     private var initialUseRapidActingChildInsulinModel: Bool {
         viewModel.useRapidActingChildInsulinModel
     }
@@ -32,6 +36,7 @@ public struct InsulinModelPreferenceEditor: View {
     public init(preferencesViewModel: PreferencesViewModel, didSave: (() -> Void)? = nil) {
         self.viewModel = preferencesViewModel
         self.didSave = didSave
+        _useNewChildInsulinModel = State(initialValue: preferencesViewModel.useNewChildInsulinModel)
         _useRapidActingChildInsulinModel = State(initialValue: preferencesViewModel.useRapidActingChildInsulinModel)
         _useFastLyumjevInsulinModel = State(initialValue: preferencesViewModel.useFastLyumjevInsulinModel)
     }
@@ -42,7 +47,8 @@ public struct InsulinModelPreferenceEditor: View {
     }
     
     private var settingsChanged: Bool {
-        useRapidActingChildInsulinModel != initialUseRapidActingChildInsulinModel
+        useNewChildInsulinModel != initialUseNewChildInsulinModel
+            || useRapidActingChildInsulinModel != initialUseRapidActingChildInsulinModel
             || useFastLyumjevInsulinModel != initialUseFastLyumjevInsulinModel
     }
 
@@ -75,12 +81,12 @@ public struct InsulinModelPreferenceEditor: View {
             cards: {
                 Card {
                     description
-                        .font(.callout)
-                        .foregroundColor(Color(.secondaryLabel))
-                        .fixedSize(horizontal: false, vertical: true)
-
+                    Toggle("Use New Child Models", isOn: $useNewChildInsulinModel)
+                        .disabled(useRapidActingChildInsulinModel || useFastLyumjevInsulinModel)
                     Toggle("Use Rapid Acting Child", isOn: $useRapidActingChildInsulinModel)
+                        .disabled(useNewChildInsulinModel)
                     Toggle("Use Fast Lyumjev", isOn: $useFastLyumjevInsulinModel)
+                        .disabled(useNewChildInsulinModel)
                 }
             },
             actionAreaContent: {
@@ -98,13 +104,33 @@ public struct InsulinModelPreferenceEditor: View {
         return .disabled
     }
 
-    private var description: Text {
-        Text(
-            LocalizedString(
-                "Insulin Model Options allow you to customize the insulin model for different insulin types. Enabling the Rapid Acting Child Model will force that model to be used for rapid acting, even if you previously had set the Rapid Acting Model to Adult, when using the ADULT_CHILD_INSULIN_MODEL_SELECTION_ENABLED feature flag. Fast Lyumjev represents a slightly faster acting model for Lyumjev, then the default which matches Fiasp.",
-                comment: "Description for Meal Recommendation Preference Editor"
-            )
-        )
+    private var description: any View {
+        VStack {
+            Text(
+                LocalizedString(
+                    "Insulin Model Options allow you to customize the insulin model for different insulin types. These choices override any other changes made (e.g., via feature flag or hard-coding).",
+                    comment: "Description for Insulin Model Options Preference Editor"
+                )
+            ).font(.callout)
+
+            HStack(alignment: .top) {
+                Text("•")
+                Text(LocalizedString("New Child: significantly faster models. Applicable to Novolog, Humalog, Fiasp and Lyumjev. Apidra behaves similarly in children and adults, so it is not applicable. May not be used with the other options", comment: "description of new child models"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }.font(.subheadline)
+            HStack(alignment: .top) {
+                Text("•")
+                Text(LocalizedString("Rapid Acting Child: slightly faster model for all rapid-acting insulins (Novolog, Humalog, and Apidra). This was previously configurable via a feature flag", comment: "description of rapid child model"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }.font(.subheadline)
+            HStack(alignment: .top) {
+                Text("•")
+                Text(LocalizedString("Fast Lyumjev: slightly faster acting model than the default which matches Fiasp", comment: "description of fast lyumjev model"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }.font(.subheadline)
+
+        }
+        .foregroundColor(Color(.secondaryLabel))
     }
 
     private func startSaving() {
@@ -117,6 +143,7 @@ public struct InsulinModelPreferenceEditor: View {
     }
     
     private func continueSaving() {
+        viewModel.updateUseNewChildInsulinModel(useNewChildInsulinModel)
         viewModel.updateUseRapidActingChildInsulinModel(useRapidActingChildInsulinModel)
         viewModel.updateUseFastLyumjevInsulinModel(useFastLyumjevInsulinModel)
         didSave?()

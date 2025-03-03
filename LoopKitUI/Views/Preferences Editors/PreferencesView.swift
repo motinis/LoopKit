@@ -154,7 +154,7 @@ extension PreferencesView {
         card(for: .insulinModelPreferences) {
             SectionDivider()
             VStack(alignment: .leading, spacing: 8) {
-                checkmarkRow(title: "Rapid Acting Child", included: viewModel.useRapidActingChildInsulinModel)
+                checkmarkRow(title: "Child Models", included: viewModel.useRapidActingChildInsulinModel || viewModel.useNewChildInsulinModel)
                 checkmarkRow(title: "Fast Lyumjev", included: viewModel.useFastLyumjevInsulinModel)
             }
             .padding(.vertical, 8)
