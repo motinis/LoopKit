@@ -16,6 +16,7 @@ public class PreferencesViewModel: ObservableObject {
     @Published public var isCarbEntryExcluded: Bool
     @Published public var isCobCorrectionExcluded: Bool
     @Published public var isBgCorrectionExcluded: Bool
+    @Published public var useNewChildInsulinModel: Bool
     @Published public var useRapidActingChildInsulinModel: Bool
     @Published public var useFastLyumjevInsulinModel: Bool
 
@@ -28,6 +29,7 @@ public class PreferencesViewModel: ObservableObject {
         self.isCarbEntryExcluded = preferencesProvider.isCarbEntryExcluded
         self.isCobCorrectionExcluded = preferencesProvider.isCobCorrectionExcluded
         self.isBgCorrectionExcluded = preferencesProvider.isBgCorrectionExcluded
+        self.useNewChildInsulinModel = preferencesProvider.useNewChildInsulinModel
         self.useRapidActingChildInsulinModel = preferencesProvider.useRapidActingChildInsulinModel
         self.useFastLyumjevInsulinModel = preferencesProvider.useFastLyumjevInsulinModel
     }
@@ -55,6 +57,11 @@ public class PreferencesViewModel: ObservableObject {
     public func updateBgCorrectionExcluded(_ newValue: Bool) {
         preferencesProvider.isBgCorrectionExcluded = newValue
         self.isBgCorrectionExcluded = newValue
+    }
+    
+    public func updateUseNewChildInsulinModel(_ newValue: Bool) {
+        preferencesProvider.useNewChildInsulinModel = newValue
+        self.useNewChildInsulinModel = newValue
     }
     
     public func updateUseRapidActingChildInsulinModel(_ newValue: Bool) {
