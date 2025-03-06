@@ -115,7 +115,7 @@ public struct InsulinModelPreferenceEditor: View {
 
             HStack(alignment: .top) {
                 Text("•")
-                Text(LocalizedString("New Child: significantly faster models. Applicable to Novolog, Humalog, Fiasp and Lyumjev. Apidra behaves similarly in children and adults, so it is not applicable. May not be used with the other options", comment: "description of new child models"))
+                Text(LocalizedString("New Child: models tuned for ages 6-11. Faster for Fiasp. Much faster for Novolog, Humalog, and Lyumjev. Apidra behaves similarly in children and adults, so it is not applicable. May not be used with the other options", comment: "description of new child models"))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }.font(.subheadline)
             HStack(alignment: .top) {
