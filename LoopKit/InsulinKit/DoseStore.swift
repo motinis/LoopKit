@@ -93,6 +93,24 @@ public final class DoseStore {
     
     /// A history of recently applied schedule overrides.
     private let overrideHistory: TemporaryScheduleOverrideHistory?
+    
+    public var sleepScheduleProvider: () -> SleepSchedule? {
+        get {
+            return lockedSleepScheduleProvider.value
+        }
+        set {
+            lockedSleepScheduleProvider.value = newValue
+
+            persistenceController.managedObjectContext.perform {
+                self.clearReservoirNormalizedDoseCache()
+            }
+        }
+    }
+    private let lockedSleepScheduleProvider: Locked<() -> SleepSchedule?>
+    
+    private var sleepSchedule: SleepSchedule? {
+        sleepScheduleProvider()
+    }
 
     public var basalProfile: BasalRateSchedule? {
         get {
@@ -143,7 +161,7 @@ public final class DoseStore {
         }
         return .egpSchedule(basalSchedule: basalProfile, insulinSensitivitySchedule: insulinSensitivitySchedule)
     }
-
+    
     public let insulinDeliveryStore: InsulinDeliveryStore
 
     /// The representation of the insulin pump for Health storage
@@ -198,6 +216,7 @@ public final class DoseStore {
         longestEffectDuration: TimeInterval,
         basalProfile: BasalRateSchedule?,
         insulinSensitivitySchedule: InsulinSensitivitySchedule?,
+        sleepScheduleProvider: @escaping () -> SleepSchedule? = { nil },
         overrideHistory: TemporaryScheduleOverrideHistory? = nil,
         syncVersion: Int = 1,
         lastPumpEventsReconciliation: Date? = nil,
@@ -221,6 +240,7 @@ public final class DoseStore {
         self.cacheLength = cacheLength
         self.syncVersion = syncVersion
         self.lockedLastPumpEventsReconciliation = Locked(lastPumpEventsReconciliation)
+        self.lockedSleepScheduleProvider = Locked(sleepScheduleProvider)
 
         self.pumpEventQueryAfterDate = cacheStartDate
 
@@ -1320,7 +1340,7 @@ extension DoseStore {
                 completion(.failure(error))
             case .success(let doses):
                 let trimmedDoses = doses.map { $0.trimmed(to: basalDosingEnd) }
-                let insulinOnBoard = trimmedDoses.insulinOnBoard(insulinModelProvider: self.insulinModelProvider, longestEffectDuration: self.longestEffectDuration)
+                let insulinOnBoard = trimmedDoses.insulinOnBoard(insulinModelProvider: self.insulinModelProvider, longestEffectDuration: self.longestEffectDuration, sleepSchedule: self.sleepSchedule)
                 completion(.success(insulinOnBoard.filterDateRange(start, end)))
             }
         }
@@ -1357,7 +1377,7 @@ extension DoseStore {
                     return dose.trimmed(to: basalDosingEnd)
                 }
 
-                let glucoseEffects = trimmedDoses.glucoseEffects(insulinModelProvider: self.insulinModelProvider, longestEffectDuration: self.longestEffectDuration, insulinSensitivity: insulinSensitivitySchedule, from: start, to: end)
+                let glucoseEffects = trimmedDoses.glucoseEffects(insulinModelProvider: self.insulinModelProvider, longestEffectDuration: self.longestEffectDuration, insulinSensitivity: insulinSensitivitySchedule, sleepSchedule: self.sleepSchedule, from: start, to: end)
                 completion(.success(glucoseEffects.filterDateRange(start, end)))
             }
         }
@@ -1415,7 +1435,7 @@ extension DoseStore {
             "* pumpRecordsBasalProfileStartEvents: \(pumpRecordsBasalProfileStartEvents)",
             "* device: \(String(describing: device))",
         ]
-
+        
         insulinOnBoard(at: currentDate()) { (result) in
             report.append("")
 
