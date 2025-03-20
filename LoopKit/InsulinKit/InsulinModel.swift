@@ -29,7 +29,7 @@ public typealias SleepSchedule = DateInterval
 
 public extension InsulinModel {
     
-    var slowdownFactor: Double { 0.3 }
+    private var slowdownFactor: Double { 0.3 }
     
     /// Returns the percentage of total insulin effect remaining at a specified date after delivery; also known as Insulin On Board (IOB).
     /// Takes into account a slowdown factor that occurs during sleep. Return value is within the range of 0-1

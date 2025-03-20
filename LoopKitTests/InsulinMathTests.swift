@@ -306,6 +306,74 @@ class InsulinMathTests: XCTestCase {
 
     }
     
+    func testExponentialModelWithSleepSchedules() {
+        let delay = 10.0
+        let insulinModel = ExponentialInsulinModel(actionDuration: TimeInterval(minutes: 360), peakActivityTime: TimeInterval(minutes: 75), delay: TimeInterval(minutes: delay))
+        
+        let duration = insulinModel.effectDuration
+        let now = Date()
+
+        let alwaysOnSchedule = SleepSchedule(start: now, end: now.addingTimeInterval(.hours(24)))
+
+        XCTAssertEqual(insulinModel.delay + (duration - insulinModel.delay) / 0.7, insulinModel.maxPossibleEffectDuration)
+        XCTAssertEqual(insulinModel.effectDuration(at: now, sleepSchedule: alwaysOnSchedule), insulinModel.maxPossibleEffectDuration)
+        for offset in 0...Int(insulinModel.maxPossibleEffectDuration.rounded(.up)) {
+            let adjustedTime: Double = Double(offset)
+            let time = adjustedTime < delay ? adjustedTime : delay + (adjustedTime - delay) * 0.7
+
+            let noSleepValue = insulinModel.percentEffectRemaining(at: .minutes(time))
+            let value = insulinModel.percentEffectRemaining(doseDate: now, at: .minutes(adjustedTime), sleepSchedule: alwaysOnSchedule)
+            
+            XCTAssertEqual(noSleepValue, value, accuracy: 0.001, "Failed for offset \(offset)")
+        }
+        
+        
+        let startingSchedule = SleepSchedule(start: now, duration: .minutes(60))
+        let startingDuration = insulinModel.effectDuration(at: now, sleepSchedule: startingSchedule)
+
+        XCTAssertEqual(duration + (startingSchedule.duration - insulinModel.delay) * 0.3 / 0.7, startingDuration)
+        for offset in 0...Int(startingDuration.minutes.rounded(.up)) {
+            let adjustedTime: Double = Double(offset)
+            let time = adjustedTime < delay ? adjustedTime :
+                adjustedTime < 60 ? delay + (adjustedTime - delay) * 0.7 :
+                    adjustedTime - (60 - delay) * 0.3
+            let noSleepValue = insulinModel.percentEffectRemaining(at: .minutes(time))
+            let value = insulinModel.percentEffectRemaining(doseDate: now, at: .minutes(adjustedTime), sleepSchedule: startingSchedule)
+            
+            XCTAssertEqual(noSleepValue, value, accuracy: 0.001, "Failed for offset \(offset)")
+        }
+        
+        
+        let middleSchedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .minutes(120))
+        let middleDuration = insulinModel.effectDuration(at: now, sleepSchedule: middleSchedule)
+        XCTAssertEqual(duration + middleSchedule.duration * 0.3 / 0.7, middleDuration)
+        for offset in 0...Int(middleDuration.minutes.rounded(.up)) {
+            let adjustedTime: Double = Double(offset)
+            let time = adjustedTime < 60 ? adjustedTime :
+                adjustedTime < 180 ? adjustedTime - (adjustedTime - 60) * 0.3 :
+                    adjustedTime - 120 * 0.3
+            let noSleepValue = insulinModel.percentEffectRemaining(at: .minutes(time))
+            let value = insulinModel.percentEffectRemaining(doseDate: now, at: .minutes(adjustedTime), sleepSchedule: middleSchedule)
+            
+            XCTAssertEqual(noSleepValue, value, accuracy: 0.001, "Failed for offset \(offset)")
+        }
+        
+        
+        
+        let endingSchedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .hours(12))
+        let endingDuration = insulinModel.effectDuration(at: now, sleepSchedule: endingSchedule)
+        XCTAssertEqual(duration + (duration - .minutes(60)) * 0.3 / 0.7, endingDuration)
+        for offset in 0...Int(endingDuration.minutes.rounded(.up)) {
+            let adjustedTime: Double = Double(offset)
+            let time = adjustedTime < 60 ? adjustedTime :
+                adjustedTime - (adjustedTime - 60) * 0.3
+            let noSleepValue = insulinModel.percentEffectRemaining(at: .minutes(time))
+            let value = insulinModel.percentEffectRemaining(doseDate: now, at: .minutes(adjustedTime), sleepSchedule: endingSchedule)
+            
+            XCTAssertEqual(noSleepValue, value, accuracy: 0.001, "Failed for offset \(offset)")
+        }
+    }
+    
     func testIOBFromDosesExponential() {
         let input = loadDoseFixture("normalized_doses", insulinType: .novolog)
         let output = loadInsulinValueFixture("iob_from_doses_exponential_output")
