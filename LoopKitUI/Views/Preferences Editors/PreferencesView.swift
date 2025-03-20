@@ -17,6 +17,15 @@ public struct PreferencesView: View {
     
     @ObservedObject var viewModel: PreferencesViewModel
     
+    private let timeFormatter: DateFormatter = {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .none
+        dateFormatter.timeStyle = .short
+
+        return dateFormatter
+    }()
+
+    
     public init(viewModel: PreferencesViewModel) {
         self.viewModel = viewModel
     }
@@ -88,6 +97,7 @@ extension PreferencesView {
         cards.append(basalLockSection)
         cards.append(mealRecommendationPreferenceSection)
         cards.append(insulinModelPreferenceSection)
+        cards.append(sleepSchedulePreferencesSection)
 
         return CardStack(cards: cards)
     }
@@ -101,6 +111,8 @@ extension PreferencesView {
             MealRecommendationPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
         case .insulinModelPreferences:
             InsulinModelPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
+        case .sleepSchedule:
+            SleepSchedulePreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
         }
     }
     
@@ -169,6 +181,23 @@ extension PreferencesView {
                 Image(systemName: "checkmark")
                     .foregroundColor(.gray)
             }
+        }
+    }
+        
+    private var sleepSchedulePreferencesSection: Card {
+        card(for: .sleepSchedule) {
+            SectionDivider()
+            HStack(alignment: .firstTextBaseline) {
+                Text(LocalizedString("Sleep Schedule:", comment: "sleep schedule title"))
+                Spacer()
+                if viewModel.isSleepScheduleEnabled, let sleepSchedule = viewModel.sleepSchedule {
+                    Text(timeFormatter.string(from: sleepSchedule.start))
+                    Text(" - ")
+                    Text(timeFormatter.string(from: sleepSchedule.end))
+                } else {
+                    Text("Off")
+                }
+            }.foregroundColor(Color(.secondaryLabel))
         }
     }
 }

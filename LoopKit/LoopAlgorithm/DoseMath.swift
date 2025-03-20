@@ -227,22 +227,25 @@ extension Collection where Element: GlucoseValue {
     ///   - suspendThreshold: The glucose value below which only suspension is returned
     ///   - sensitivity: The insulin sensitivity at the time of delivery
     ///   - model: The insulin effect model
+    ///   - sleepSchedule: When insulin absorption should be slowed down
     /// - Returns: A correction value in units, or nil if no correction needed
     private func insulinCorrection(
         to correctionRange: GlucoseRangeSchedule,
         at date: Date,
         suspendThreshold: HKQuantity,
         sensitivity: HKQuantity,
-        model: InsulinModel
+        model: InsulinModel,
+        sleepSchedule: SleepSchedule?
     ) -> InsulinCorrection? {
-        let effectDuration = model.effectDuration
+        let effectDuration = model.effectDuration(at: date, sleepSchedule: sleepSchedule)
         let timeline = [AbsoluteScheduleValue(startDate: date, endDate: date.addingTimeInterval(effectDuration), value: sensitivity)]
         return insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold,
             insulinSensitivityTimeline: timeline,
-            model: model)
+            model: model,
+            sleepSchedule: sleepSchedule)
     }
 
     /// For a collection of glucose prediction, determine the least amount of insulin delivered at
@@ -254,13 +257,15 @@ extension Collection where Element: GlucoseValue {
     ///   - suspendThreshold: The glucose value below which only suspension is returned
     ///   - insulinSensitivityTimeline: The timeline of expected insulin sensitivity over the period of dose absorption
     ///   - model: The insulin effect model
+    ///   - sleepSchedule: When insulin absorption should be slowed down
     /// - Returns: A correction value in units, or nil if no correction needed
     private func insulinCorrection(
         to correctionRange: GlucoseRangeSchedule,
         at date: Date,
         suspendThreshold: HKQuantity,
         insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
-        model: InsulinModel
+        model: InsulinModel,
+        sleepSchedule: SleepSchedule?
     ) -> InsulinCorrection? {
         var minGlucose: GlucoseValue?
         var eventualGlucose: GlucoseValue?
@@ -269,7 +274,7 @@ extension Collection where Element: GlucoseValue {
         var effectedSensitivityAtMinGlucose: Double?
 
         // Only consider predictions within the model's effect duration
-        let validDateRange = DateInterval(start: date, duration: model.effectDuration)
+        let validDateRange = DateInterval(start: date, duration: model.effectDuration(at: date, sleepSchedule: sleepSchedule))
 
         let unit = correctionRange.unit
         let suspendThresholdValue = suspendThreshold.doubleValue(for: unit)
@@ -306,7 +311,7 @@ extension Collection where Element: GlucoseValue {
             let effectedSensitivity = isfSegments.reduce(0) { partialResult, segment in
                 let start = Swift.max(date, segment.startDate).timeIntervalSince(date)
                 let end = Swift.min(prediction.startDate, segment.endDate).timeIntervalSince(date)
-                let percentEffected = model.percentEffectRemaining(at: start) - model.percentEffectRemaining(at: end)
+                let percentEffected = model.percentEffectRemaining(doseDate: date, at: start, sleepSchedule: sleepSchedule) - model.percentEffectRemaining(doseDate: date, at: end, sleepSchedule: sleepSchedule)
                 return percentEffected * segment.value.doubleValue(for: unit)
             }
 
@@ -427,14 +432,16 @@ extension Collection where Element: GlucoseValue {
         isBasalRateScheduleOverrideActive: Bool = false,
         duration: TimeInterval = TimeInterval(30 * 60),
         continuationInterval: TimeInterval = TimeInterval(60 * 11),
-        basalLockThreshold: HKQuantity? = nil
+        basalLockThreshold: HKQuantity? = nil,
+        sleepSchedule: SleepSchedule? = nil
     ) -> TempBasalRecommendation? {
         let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
             sensitivity: sensitivity.quantity(at: date),
-            model: model
+            model: model,
+            sleepSchedule: sleepSchedule
         )
 
         let scheduledBasalRate = basalRates.value(at: date)
@@ -503,14 +510,16 @@ extension Collection where Element: GlucoseValue {
         isBasalRateScheduleOverrideActive: Bool = false,
         duration: TimeInterval = TimeInterval(30 * 60),
         continuationInterval: TimeInterval = TimeInterval(11 * 60),
-        basalLockThreshold: HKQuantity? = nil
+        basalLockThreshold: HKQuantity? = nil,
+        sleepSchedule: SleepSchedule? = nil
     ) -> AutomaticDoseRecommendation? {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
             sensitivity: sensitivity.quantity(at: date),
-            model: model
+            model: model,
+            sleepSchedule: sleepSchedule
         ) else {
             return nil
         }
@@ -575,14 +584,16 @@ extension Collection where Element: GlucoseValue {
         model: InsulinModel,
         pendingInsulin: Double,
         maxBolus: Double,
-        volumeRounder: ((Double) -> Double)? = nil        
+        volumeRounder: ((Double) -> Double)? = nil,
+        sleepSchedule: SleepSchedule? = nil
     ) -> ManualBolusRecommendation {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
             sensitivity: sensitivity.quantity(at: date),
-            model: model
+            model: model,
+            sleepSchedule: sleepSchedule
         ) else {
             return ManualBolusRecommendation(amount: 0, pendingInsulin: pendingInsulin)
         }

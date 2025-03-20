@@ -305,6 +305,7 @@ public struct StoredSettings: Equatable {
     public let defaultRapidActingModel: StoredInsulinModel?
     public let basalRateSchedule: BasalRateSchedule?
     public let insulinSensitivitySchedule: InsulinSensitivitySchedule?
+    public let sleepSchedule: SleepSchedule?
     public let carbRatioSchedule: CarbRatioSchedule?
     public var notificationSettings: NotificationSettings?
     public let controllerDevice: ControllerDevice?
@@ -332,6 +333,7 @@ public struct StoredSettings: Equatable {
                 defaultRapidActingModel: StoredInsulinModel? = nil,
                 basalRateSchedule: BasalRateSchedule? = nil,
                 insulinSensitivitySchedule: InsulinSensitivitySchedule? = nil,
+                sleepSchedule: SleepSchedule? = nil,
                 carbRatioSchedule: CarbRatioSchedule? = nil,
                 notificationSettings: NotificationSettings? = nil,
                 controllerDevice: ControllerDevice? = nil,
@@ -357,6 +359,7 @@ public struct StoredSettings: Equatable {
         self.defaultRapidActingModel = defaultRapidActingModel
         self.basalRateSchedule = basalRateSchedule
         self.insulinSensitivitySchedule = insulinSensitivitySchedule
+        self.sleepSchedule = sleepSchedule
         self.carbRatioSchedule = carbRatioSchedule
         self.notificationSettings = notificationSettings
         self.controllerDevice = controllerDevice
@@ -391,6 +394,7 @@ extension StoredSettings: Codable {
                   defaultRapidActingModel: try container.decodeIfPresent(StoredInsulinModel.self, forKey: .defaultRapidActingModel),
                   basalRateSchedule: try container.decodeIfPresent(BasalRateSchedule.self, forKey: .basalRateSchedule),
                   insulinSensitivitySchedule: try container.decodeIfPresent(InsulinSensitivitySchedule.self, forKey: .insulinSensitivitySchedule),
+                  sleepSchedule: try container.decodeIfPresent(SleepSchedule.self, forKey: .sleepSchedule),
                   carbRatioSchedule: try container.decodeIfPresent(CarbRatioSchedule.self, forKey: .carbRatioSchedule),
                   notificationSettings: try container.decodeIfPresent(NotificationSettings.self, forKey: .notificationSettings),
                   controllerDevice: try container.decodeIfPresent(ControllerDevice.self, forKey: .controllerDevice),
@@ -421,6 +425,7 @@ extension StoredSettings: Codable {
         try container.encodeIfPresent(defaultRapidActingModel, forKey: .defaultRapidActingModel)
         try container.encodeIfPresent(basalRateSchedule, forKey: .basalRateSchedule)
         try container.encodeIfPresent(insulinSensitivitySchedule, forKey: .insulinSensitivitySchedule)
+        try container.encodeIfPresent(sleepSchedule, forKey: .sleepSchedule)
         try container.encodeIfPresent(carbRatioSchedule, forKey: .carbRatioSchedule)
         try container.encodeIfPresent(notificationSettings, forKey: .notificationSettings)
         try container.encodeIfPresent(controllerDevice, forKey: .controllerDevice)
@@ -465,6 +470,7 @@ extension StoredSettings: Codable {
         case defaultRapidActingModel
         case basalRateSchedule
         case insulinSensitivitySchedule
+        case sleepSchedule
         case carbRatioSchedule
         case notificationSettings
         case controllerDevice

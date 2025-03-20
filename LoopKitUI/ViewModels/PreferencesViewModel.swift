@@ -19,6 +19,8 @@ public class PreferencesViewModel: ObservableObject {
     @Published public var useNewChildInsulinModel: Bool
     @Published public var useRapidActingChildInsulinModel: Bool
     @Published public var useFastLyumjevInsulinModel: Bool
+    @Published public var isSleepScheduleEnabled: Bool
+    @Published public var sleepSchedule: SleepSchedule?
 
     private var preferencesProvider: PreferencesProvider
     
@@ -32,6 +34,8 @@ public class PreferencesViewModel: ObservableObject {
         self.useNewChildInsulinModel = preferencesProvider.useNewChildInsulinModel
         self.useRapidActingChildInsulinModel = preferencesProvider.useRapidActingChildInsulinModel
         self.useFastLyumjevInsulinModel = preferencesProvider.useFastLyumjevInsulinModel
+        self.isSleepScheduleEnabled = preferencesProvider.isSleepScheduleEnabled
+        self.sleepSchedule = preferencesProvider.sleepSchedule
     }
     
     public func updateBasalLockThreshold(_ newValue: HKQuantity) {
@@ -72,5 +76,15 @@ public class PreferencesViewModel: ObservableObject {
     public func updateUseFastLyumjevInsulinModel(_ newValue: Bool) {
         preferencesProvider.useFastLyumjevInsulinModel = newValue
         self.useFastLyumjevInsulinModel = newValue
+    }
+    
+    public func updateSleepScheduleEnabled(_ newValue: Bool) {
+        preferencesProvider.isSleepScheduleEnabled = newValue
+        self.isSleepScheduleEnabled = newValue
+    }
+    
+    public func updateSleepSchedule(_ newValue: SleepSchedule?) {
+        preferencesProvider.sleepSchedule = newValue
+        self.sleepSchedule = newValue
     }
 }

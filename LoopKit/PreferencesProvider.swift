@@ -18,4 +18,6 @@ public protocol PreferencesProvider {
     var useNewChildInsulinModel: Bool { get set }
     var useRapidActingChildInsulinModel: Bool { get set }
     var useFastLyumjevInsulinModel: Bool { get set }
+    var isSleepScheduleEnabled: Bool { get set }
+    var sleepSchedule: SleepSchedule? { get set }
 }
