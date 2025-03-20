@@ -24,7 +24,6 @@ extension DoseEntry {
             let segment: Double
             
             if doseDuration > 0 {
-                // FIXME do we need to apply sleepSchedule here, or is it already calculated inside doseEntry.endDate?
                 segment = max(0, min(doseDate + delta, doseDuration) - doseDate) / doseDuration
             } else {
                 segment = 1
@@ -63,7 +62,6 @@ extension DoseEntry {
             let segment: Double
             
             if doseDuration > 0 {
-                // FIXME do we need to apply sleepSchedule here, or is it already calculated inside doseEntry.endDate?
                 segment = max(0, min(doseDate + delta, doseDuration) - doseDate) / doseDuration
             } else {
                 segment = 1
@@ -584,26 +582,15 @@ extension Collection where Element == DoseEntry {
      - returns: A sequence of insulin amount remaining
      */
     public func insulinOnBoard(
-        insulinModelProvider: InsulinModelProvider = PresetInsulinModelProvider(defaultRapidActingModel: nil),
-        longestEffectDuration: TimeInterval = InsulinMath.defaultInsulinActivityDuration,
+        insulinModelProvider: InsulinModelProvider,
+        longestEffectDuration: TimeInterval,
         sleepSchedule: SleepSchedule? = nil,
         from start: Date? = nil,
         to end: Date? = nil,
         delta: TimeInterval = TimeInterval(5*60)
     ) -> [InsulinValue] {
         
-        var maxEffectDuration = longestEffectDuration
-        
-        if let sleepSchedule = sleepSchedule, longestEffectDuration == InsulinMath.defaultInsulinActivityDuration {
-            let model = ExponentialInsulinModelPreset.rapidActingAdult.model
-            if let start = start {
-                maxEffectDuration = model.effectDuration(at: start, sleepSchedule: sleepSchedule)
-            } else {
-                maxEffectDuration = model.maxPossibleEffectDuration
-            }
-        }
-        
-        guard let (start, end) = LoopMath.simulationDateRangeForSamples(self, from: start, to: end, duration: maxEffectDuration, delta: delta) else {
+        guard let (start, end) = LoopMath.simulationDateRangeForSamples(self, from: start, to: end, duration: longestEffectDuration, delta: delta) else {
             return []
         }
 
@@ -731,8 +718,8 @@ extension Collection where Element == DoseEntry {
     ///   - sleepSchedule: When insulin absorption is slowed down
     /// - Returns: An array of glucose effects for the duration of the doses
     public func glucoseEffects(
-        insulinModelProvider: InsulinModelProvider = PresetInsulinModelProvider(defaultRapidActingModel: nil),
-        longestEffectDuration: TimeInterval = InsulinMath.defaultInsulinActivityDuration,
+        insulinModelProvider: InsulinModelProvider,
+        longestEffectDuration: TimeInterval,
         insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
         from start: Date? = nil,
         to end: Date? = nil,
@@ -790,8 +777,8 @@ extension Collection where Element == DoseEntry {
     ///   - sleepSchedule: when insulin absorption is slowed down
     /// - Returns: An array of glucose effects for the duration of the doses
     public func glucoseEffects(
-        insulinModelProvider: InsulinModelProvider = PresetInsulinModelProvider(defaultRapidActingModel: nil),
-        longestEffectDuration: TimeInterval = InsulinMath.defaultInsulinActivityDuration,
+        insulinModelProvider: InsulinModelProvider,
+        longestEffectDuration: TimeInterval,
         insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
         effectDates: [Date],
         delta: TimeInterval = TimeInterval(/* minutes: */60 * 5),
