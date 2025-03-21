@@ -36,18 +36,20 @@ public struct SleepSchedulePreferenceEditor: View {
     }
 
     private var initialStart: TimeInterval? {
-        return SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.start)
+        SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().start)
     }
+    
     private var initialEnd: TimeInterval? {
-        return SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.end)
+        SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().end)
     }
+    
     
     public init(preferencesViewModel: PreferencesViewModel, didSave: (() -> Void)? = nil) {
         self.viewModel = preferencesViewModel
         self.didSave = didSave
         _isSleepScheduleEnabled = State(initialValue: viewModel.isSleepScheduleEnabled)
-        _start = State(initialValue: SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.start) ??  .hours(22))
-        _end = State(initialValue: SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.end) ?? .hours(6))
+        _start = State(initialValue: SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().start) ??  .hours(22))
+        _end = State(initialValue:  SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().end) ??  .hours(6))
     }
     
     public var body: some View {
@@ -102,7 +104,7 @@ public struct SleepSchedulePreferenceEditor: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Toggle(isOn: $isSleepScheduleEnabled) {
-                        Text("Enable Sleep Schedule")
+                        Text("🚧 Enable Sleep Schedule")
                     }.animation(.default, value: isSleepScheduleEnabled)
                     
                     if (isSleepScheduleEnabled) {

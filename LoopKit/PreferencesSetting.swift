@@ -44,7 +44,7 @@ public extension PreferencesSetting {
         case .insulinModelPreferences:
             return String(format: LocalizedString("Allows user to choose alternative insulin model behaviors", comment: "Descriptive text for Insulin Model Preferences for (1: app name)"), appName)
         case .sleepSchedule:
-            return String(format: LocalizedString("Allows user to set a sleep schedule. Insulin absorption is modeled to be slowed down while sleeping.", comment: "Descriptive text for Sleep Schedule Preferences for (1: app name)"), appName)
+            return String(format: LocalizedString("Insulin absorption is modeled to be slower while sleeping.", comment: "Descriptive text for Sleep Schedule Preferences for (1: app name)"), appName)
         }
     }
 }

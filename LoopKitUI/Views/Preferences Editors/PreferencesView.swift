@@ -190,7 +190,7 @@ extension PreferencesView {
             HStack(alignment: .firstTextBaseline) {
                 Text(LocalizedString("Sleep Schedule:", comment: "sleep schedule title"))
                 Spacer()
-                if viewModel.isSleepScheduleEnabled, let sleepSchedule = viewModel.sleepSchedule {
+                if viewModel.isSleepScheduleEnabled, let sleepSchedule = viewModel.sleepSchedule?.asDateInterval() {
                     Text(timeFormatter.string(from: sleepSchedule.start))
                     Text(" - ")
                     Text(timeFormatter.string(from: sleepSchedule.end))
