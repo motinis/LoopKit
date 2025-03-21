@@ -81,7 +81,7 @@ public struct InsulinModelPreferenceEditor: View {
             cards: {
                 Card {
                     description
-                    Toggle("Use New Child Models", isOn: $useNewChildInsulinModel)
+                    Toggle("🚧 Use New Child Models", isOn: $useNewChildInsulinModel)
                         .disabled(useRapidActingChildInsulinModel || useFastLyumjevInsulinModel)
                     Toggle("Use Rapid Acting Child", isOn: $useRapidActingChildInsulinModel)
                         .disabled(useNewChildInsulinModel)
