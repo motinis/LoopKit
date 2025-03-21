@@ -341,6 +341,10 @@ class InsulinMathTests: XCTestCase {
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.7 }
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            for _ in 1...24 {
+                schedule = SleepSchedule(start: schedule.start + .hours(1), duration: schedule.duration)
+                verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            }
 
             schedule = SleepSchedule(start: doseDate, duration: .minutes(60))
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
@@ -349,6 +353,8 @@ class InsulinMathTests: XCTestCase {
                     $0 < 60 ? delay + ($0 - delay) * 0.7 :
                         $0 - (60 - delay) * 0.3 }
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            schedule = SleepSchedule(start: schedule.start + .hours(-24), duration: schedule.duration)
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
          
             schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .minutes(120))
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
@@ -356,6 +362,8 @@ class InsulinMathTests: XCTestCase {
                 $0 < 60 ? $0 :
                     $0 < 180 ? $0 - ($0 - 60) * 0.3 :
                     $0 - 120 * 0.3 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            schedule = SleepSchedule(start: schedule.start + .hours(48), duration: schedule.duration)
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
             
             schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .hours(12))

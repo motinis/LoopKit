@@ -25,7 +25,53 @@ public protocol InsulinModel: CustomDebugStringConvertible {
     var delay: TimeInterval { get }
 }
 
-public typealias SleepSchedule = DateInterval
+public struct SleepSchedule : Equatable {
+    
+    /// offset since midnight
+    let start: TimeInterval
+    
+    /// up to 24hrs.
+    let duration: TimeInterval
+    
+    public init(start: TimeInterval, duration: TimeInterval) {
+        self.init(start: Date(timeIntervalSince1970: start), duration: duration)
+    }
+    
+    public init(start: Date, duration: TimeInterval) {
+        self.init(DateInterval(start: start, duration: duration))
+    }
+    
+    public init(_ interval: DateInterval) {
+        self.start = interval.start.timeIntervalSince(interval.start.dateFlooredToTimeInterval(.hours(24)))
+        self.duration = min(interval.duration, .hours(24))
+    }
+    
+    public func intersection(with interval: DateInterval) -> TimeInterval {
+        let intervalDays = floor(interval.duration / .hours(24))
+        let offsetInterval = DateInterval(start: interval.start, duration: interval.duration - intervalDays * .hours(24))
+        
+        var result = intervalDays * duration
+        
+        let interval1 = DateInterval(start: interval.start.dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(start), duration: duration)
+        let interval2 = DateInterval(start: interval1.start.addingTimeInterval(.hours(24)), duration: duration)
+        let interval3 = DateInterval(start: interval1.start.addingTimeInterval(.hours(-24)), duration: duration)
+        
+        result += offsetInterval.intersection(with: interval1)?.duration ?? 0
+        result += offsetInterval.intersection(with: interval2)?.duration ?? 0
+        result += offsetInterval.intersection(with: interval3)?.duration ?? 0
+        
+        return result
+    }
+    
+    public func asDateInterval() -> DateInterval {
+        DateInterval(start: Date().dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(start), duration: duration)
+    }
+    
+    static public func == (lhs: SleepSchedule, rhs: SleepSchedule) -> Bool {
+        lhs.start == rhs.start && lhs.duration == rhs.duration
+    }
+    
+}
 
 public extension InsulinModel {
     
@@ -42,14 +88,11 @@ public extension InsulinModel {
         guard let sleepSchedule = sleepSchedule, time > delay else {
             return percentEffectRemaining(at: time)
         }
-        
-        let doseStart = sleepSchedule.start.dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(           doseDate.timeIntervalSince(doseDate.dateFlooredToTimeInterval(.hours(24))))
-        
+                
         // slowdown does not impact delay
-        let interval = DateInterval(start: doseStart + delay, duration: time - delay)
-        let slowdownPeriod = sleepSchedule.intersection(with: interval)?.duration ?? 0
+        let interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: time - delay)
         
-        return percentEffectRemaining(at: time - slowdownFactor * slowdownPeriod)
+        return percentEffectRemaining(at: time - slowdownFactor * sleepSchedule.intersection(with: interval))
     }
     
     /// The expected duration, including any effect delay, of an insulin dose, from the time of the dose
@@ -62,13 +105,13 @@ public extension InsulinModel {
         }
         
         let interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: effectDuration - delay)
-        let slowdownPeriod = sleepSchedule.intersection(with: interval)?.duration ?? 0
+        let slowdownPeriod = sleepSchedule.intersection(with: interval)
         
         return effectDuration - slowdownPeriod + slowdownPeriod / (1 - slowdownFactor)
     }
 
     var maxPossibleEffectDuration: TimeInterval {
-        return effectDuration(at: Date(), sleepSchedule: SleepSchedule(start: .distantPast, end: .distantFuture))
+        return effectDuration(at: Date(), sleepSchedule: SleepSchedule(start: 0, duration: .hours(24)))
     }
 }
 
