@@ -150,7 +150,7 @@ public struct SleepSchedulePreferenceEditor: View {
     private var description: Text {
         Text(
             LocalizedString(
-                "While sleeping, blood flow is reduced and insulin absorption is slowed. Enabling this will result in slower absorption being modeled during the scheduled sleep time.",
+                "While sleeping, blood flow is reduced and insulin absorption is slowed. Enabling a sleep schedule will result in slower absorption being modeled during these times.",
                 comment: "Description for Sleep Schedule Preference Editor"
             )
         )

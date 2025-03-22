@@ -28,10 +28,10 @@ public protocol InsulinModel: CustomDebugStringConvertible {
 public struct SleepSchedule : Equatable {
     
     /// offset since midnight
-    let start: TimeInterval
+    public let start: TimeInterval
     
     /// up to 24hrs.
-    let duration: TimeInterval
+    public let duration: TimeInterval
     
     public init(start: TimeInterval, duration: TimeInterval) {
         self.init(start: Date(timeIntervalSince1970: start), duration: duration)
