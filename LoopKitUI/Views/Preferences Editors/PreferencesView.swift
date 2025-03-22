@@ -185,15 +185,17 @@ extension PreferencesView {
     }
         
     private var sleepSchedulePreferencesSection: Card {
-        card(for: .sleepSchedule) {
+        let fixedMidnight = Calendar.current.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
+
+        return card(for: .sleepSchedule) {
             SectionDivider()
             HStack(alignment: .firstTextBaseline) {
                 Text(LocalizedString("Sleep Schedule:", comment: "sleep schedule title"))
                 Spacer()
-                if viewModel.isSleepScheduleEnabled, let sleepSchedule = viewModel.sleepSchedule?.asDateInterval() {
-                    Text(timeFormatter.string(from: sleepSchedule.start))
+                if viewModel.isSleepScheduleEnabled, let sleepSchedule = viewModel.sleepSchedule {
+                    Text(timeFormatter.string(from: fixedMidnight.addingTimeInterval(sleepSchedule.start)))
                     Text(" - ")
-                    Text(timeFormatter.string(from: sleepSchedule.end))
+                    Text(timeFormatter.string(from: fixedMidnight.addingTimeInterval(sleepSchedule.start + sleepSchedule.duration)))
                 } else {
                     Text("Off")
                 }
