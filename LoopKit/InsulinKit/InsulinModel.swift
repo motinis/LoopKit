@@ -27,23 +27,29 @@ public protocol InsulinModel: CustomDebugStringConvertible {
 
 public struct SleepSchedule : Equatable {
     
+    public static let maxSlowdownFactor: Double = 0.5
+    
     /// offset since midnight
     public let start: TimeInterval
     
     /// up to 24hrs.
     public let duration: TimeInterval
     
-    public init(start: TimeInterval, duration: TimeInterval) {
-        self.init(start: Date(timeIntervalSince1970: start), duration: duration)
+    /// how much should insulin absorption be slowed down when sleeping. Limited to maxSlowdownFactor
+    public let slowdownFactor: Double
+    
+    public init(start: TimeInterval, duration: TimeInterval, slowdownFactor: Double) {
+        self.init(start: Date(timeIntervalSince1970: start), duration: duration, slowdownFactor: slowdownFactor)
     }
     
-    public init(start: Date, duration: TimeInterval) {
-        self.init(DateInterval(start: start, duration: duration))
+    public init(start: Date, duration: TimeInterval, slowdownFactor: Double) {
+        self.init(DateInterval(start: start, duration: duration), slowdownFactor)
     }
     
-    public init(_ interval: DateInterval) {
+    public init(_ interval: DateInterval, _ slowdownFactor: Double) {
         self.start = interval.start.timeIntervalSince(interval.start.dateFlooredToTimeInterval(.hours(24)))
         self.duration = min(interval.duration, .hours(24))
+        self.slowdownFactor = min(SleepSchedule.maxSlowdownFactor, slowdownFactor)
     }
     
     public func intersection(with interval: DateInterval) -> TimeInterval {
@@ -63,19 +69,14 @@ public struct SleepSchedule : Equatable {
         return result
     }
     
-    public func asDateInterval() -> DateInterval {
-        DateInterval(start: Date().dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(start), duration: duration)
-    }
-    
     static public func == (lhs: SleepSchedule, rhs: SleepSchedule) -> Bool {
-        lhs.start == rhs.start && lhs.duration == rhs.duration
+        lhs.start == rhs.start && lhs.duration == rhs.duration && lhs.slowdownFactor == rhs.slowdownFactor
     }
-    
 }
 
+extension SleepSchedule: Codable {}
+
 public extension InsulinModel {
-    
-    private var slowdownFactor: Double { 0.3 }
     
     /// Returns the percentage of total insulin effect remaining at a specified date after delivery; also known as Insulin On Board (IOB).
     /// Takes into account a slowdown factor that occurs during sleep. Return value is within the range of 0-1
@@ -92,7 +93,7 @@ public extension InsulinModel {
         // slowdown does not impact delay
         let interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: time - delay)
         
-        return percentEffectRemaining(at: time - slowdownFactor * sleepSchedule.intersection(with: interval))
+        return percentEffectRemaining(at: time - sleepSchedule.slowdownFactor * sleepSchedule.intersection(with: interval))
     }
     
     /// The expected duration, including any effect delay, of an insulin dose, from the time of the dose
@@ -107,11 +108,11 @@ public extension InsulinModel {
         let interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: effectDuration - delay)
         let slowdownPeriod = sleepSchedule.intersection(with: interval)
         
-        return effectDuration - slowdownPeriod + slowdownPeriod / (1 - slowdownFactor)
+        return effectDuration - slowdownPeriod + slowdownPeriod / (1 - sleepSchedule.slowdownFactor)
     }
 
     var maxPossibleEffectDuration: TimeInterval {
-        return effectDuration(at: Date(), sleepSchedule: SleepSchedule(start: 0, duration: .hours(24)))
+        return effectDuration(at: Date(), sleepSchedule: SleepSchedule(start: 0, duration: .hours(24), slowdownFactor: SleepSchedule.maxSlowdownFactor))
     }
 }
 
