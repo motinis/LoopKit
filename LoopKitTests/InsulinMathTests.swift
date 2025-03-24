@@ -337,41 +337,49 @@ class InsulinMathTests: XCTestCase {
             let doseDate = rawDose.startDate.dateFlooredToTimeInterval(.minutes(5))
             let dose = DoseEntry(type: rawDose.type, startDate: doseDate, value: rawDose.value, unit: rawDose.unit)
             
-            schedule = SleepSchedule(start: doseDate, duration: .hours(24))
+            schedule = SleepSchedule(start: doseDate, duration: .hours(24), slowdownFactor: 0.3)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.7 }
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
             for _ in 1...24 {
-                schedule = SleepSchedule(start: schedule.start + .hours(1), duration: schedule.duration)
+                schedule = SleepSchedule(start: schedule.start + .hours(1), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
+                verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            }
+            schedule = SleepSchedule(start: doseDate, duration: .hours(24), slowdownFactor: 0.4)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.6 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            for _ in 1...24 {
+                schedule = SleepSchedule(start: schedule.start + .hours(1), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
                 verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
             }
 
-            schedule = SleepSchedule(start: doseDate, duration: .minutes(60))
+            schedule = SleepSchedule(start: doseDate, duration: .minutes(60), slowdownFactor: 0.3)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = {
                 $0 < delay ? $0 :
                     $0 < 60 ? delay + ($0 - delay) * 0.7 :
                         $0 - (60 - delay) * 0.3 }
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
-            schedule = SleepSchedule(start: schedule.start + .hours(-24), duration: schedule.duration)
+            schedule = SleepSchedule(start: schedule.start + .hours(-24), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
          
-            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .minutes(120))
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .minutes(120), slowdownFactor: 0.2)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = {
                 $0 < 60 ? $0 :
-                    $0 < 180 ? $0 - ($0 - 60) * 0.3 :
-                    $0 - 120 * 0.3 }
+                    $0 < 180 ? $0 - ($0 - 60) * 0.2 :
+                    $0 - 120 * 0.2 }
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
-            schedule = SleepSchedule(start: schedule.start + .hours(48), duration: schedule.duration)
+            schedule = SleepSchedule(start: schedule.start + .hours(48), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
             
-            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .hours(12))
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .hours(12), slowdownFactor: 0.5)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
-            timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.3 }
+            timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.5 }
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
             
-            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(-60)), duration: .minutes(60 + delay))
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(-60)), duration: .minutes(60 + delay), slowdownFactor: 0.3)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = { $0 }
             verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
@@ -427,15 +435,15 @@ class InsulinMathTests: XCTestCase {
         var scheduleEffectDuration: TimeInterval
         var timeFunc: (Double) -> Double
         
-        schedule = SleepSchedule(start: now, duration: .hours(24))
+        schedule = SleepSchedule(start: now, duration: .hours(24), slowdownFactor: SleepSchedule.maxSlowdownFactor)
         scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
-        timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.7 }
-        XCTAssertEqual(insulinModel.delay + (duration - insulinModel.delay) / 0.7, insulinModel.maxPossibleEffectDuration)
+        timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * (1 - SleepSchedule.maxSlowdownFactor) }
+        XCTAssertEqual(insulinModel.delay + (duration - insulinModel.delay) / (1 - SleepSchedule.maxSlowdownFactor), insulinModel.maxPossibleEffectDuration)
         XCTAssertEqual(insulinModel.effectDuration(at: now, sleepSchedule: schedule), insulinModel.maxPossibleEffectDuration)
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
 
         
-        schedule = SleepSchedule(start: now, duration: .minutes(60))
+        schedule = SleepSchedule(start: now, duration: .minutes(60), slowdownFactor: 0.3)
         scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
         timeFunc = {
             $0 < delay ? $0 :
@@ -445,20 +453,20 @@ class InsulinMathTests: XCTestCase {
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
         
         
-        schedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .minutes(120))
+        schedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .minutes(120), slowdownFactor: 0.2)
         scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
         timeFunc = {
             $0 < 60 ? $0 :
-                $0 < 180 ? $0 - ($0 - 60) * 0.3 :
-                $0 - 120 * 0.3 }
-        XCTAssertEqual(duration + schedule.duration * 0.3 / 0.7, scheduleEffectDuration)
+                $0 < 180 ? $0 - ($0 - 60) * 0.2 :
+                $0 - 120 * 0.2 }
+        XCTAssertEqual(duration + schedule.duration * 0.2 / 0.8, scheduleEffectDuration)
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
         
         
-        schedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .hours(12))
+        schedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .hours(12), slowdownFactor: 0.4)
         scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
-        timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.3 }
-        XCTAssertEqual(duration + (duration - .minutes(60)) * 0.3 / 0.7, scheduleEffectDuration)
+        timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.4 }
+        XCTAssertEqual(duration + (duration - .minutes(60)) * 0.4 / 0.6, scheduleEffectDuration)
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
     }
     
@@ -832,33 +840,33 @@ class InsulinMathTests: XCTestCase {
             let doseDate = rawDose.startDate.dateFlooredToTimeInterval(.minutes(5))
             let dose = DoseEntry(type: rawDose.type, startDate: doseDate, value: rawDose.value, unit: rawDose.unit)
             
-            schedule = SleepSchedule(start: doseDate, duration: .hours(24))
+            schedule = SleepSchedule(start: doseDate, duration: .hours(24), slowdownFactor: 0.1)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
-            timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.7 }
+            timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.9 }
             verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
             
-            schedule = SleepSchedule(start: doseDate, duration: .minutes(60))
+            schedule = SleepSchedule(start: doseDate, duration: .minutes(60), slowdownFactor: 0.15)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = {
                 $0 < delay ? $0 :
-                $0 < 60 ? delay + ($0 - delay) * 0.7 :
-                $0 - (60 - delay) * 0.3 }
+                $0 < 60 ? delay + ($0 - delay) * 0.85 :
+                $0 - (60 - delay) * 0.15 }
             verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
 
-            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .minutes(120))
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .minutes(120), slowdownFactor: 0.25)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = {
                 $0 < 60 ? $0 :
-                $0 < 180 ? $0 - ($0 - 60) * 0.3 :
-                $0 - 120 * 0.3 }
+                $0 < 180 ? $0 - ($0 - 60) * 0.25 :
+                $0 - 120 * 0.25 }
             verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
 
-            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .hours(12))
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .hours(12), slowdownFactor: 0.35)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
-            timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.3 }
+            timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.35 }
             verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
 
-            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(-60)), duration: .minutes(60 + delay))
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(-60)), duration: .minutes(60 + delay), slowdownFactor: 0.45)
             scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
             timeFunc = { $0 }
             verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
