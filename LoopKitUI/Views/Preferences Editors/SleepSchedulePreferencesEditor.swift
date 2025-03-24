@@ -17,18 +17,28 @@ public struct SleepSchedulePreferenceEditor: View {
 
     let viewModel: PreferencesViewModel
     let didSave: (() -> Void)?
+    
+    private let factors = Array(stride(from: 0.05, through: SleepSchedule.maxSlowdownFactor, by: 0.05))
 
     @State private var isSleepScheduleEnabled: Bool
     @State private var start: TimeInterval
     @State private var end: TimeInterval
+    @State private var slowdownFactor: Double
     
+    private var percentFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .percent
+        formatter.maximumFractionDigits = 0
+        return formatter
+    }()    
     
-    private static func toTimeInterval(_ date: Date?) -> TimeInterval? {
-        guard let date = date else {
+    private static func getEnd(_ sleepSchedule: SleepSchedule?) -> TimeInterval? {
+        guard let sleepSchedule = sleepSchedule else {
             return nil
         }
-
-        return date.timeIntervalSince(date.dateFlooredToTimeInterval(.hours(24)))
+        
+        let end = Date(timeIntervalSince1970: sleepSchedule.start + sleepSchedule.duration)
+        return end.timeIntervalSince(end.dateFlooredToTimeInterval(.hours(24)))
     }
     
     private var initialEnabled: Bool {
@@ -36,11 +46,15 @@ public struct SleepSchedulePreferenceEditor: View {
     }
 
     private var initialStart: TimeInterval? {
-        SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().start)
+        viewModel.sleepSchedule?.start
     }
     
     private var initialEnd: TimeInterval? {
-        SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().end)
+        SleepSchedulePreferenceEditor.getEnd(viewModel.sleepSchedule)
+    }
+    
+    private var initialSlowdownFactor: Double? {
+        viewModel.sleepSchedule?.slowdownFactor
     }
     
     
@@ -48,8 +62,9 @@ public struct SleepSchedulePreferenceEditor: View {
         self.viewModel = preferencesViewModel
         self.didSave = didSave
         _isSleepScheduleEnabled = State(initialValue: viewModel.isSleepScheduleEnabled)
-        _start = State(initialValue: SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().start) ??  .hours(22))
-        _end = State(initialValue:  SleepSchedulePreferenceEditor.toTimeInterval(viewModel.sleepSchedule?.asDateInterval().end) ??  .hours(6))
+        _start = State(initialValue: viewModel.sleepSchedule?.start ?? .hours(22))
+        _end = State(initialValue:  SleepSchedulePreferenceEditor.getEnd(viewModel.sleepSchedule) ??  .hours(6))
+        _slowdownFactor = State(initialValue: viewModel.sleepSchedule?.slowdownFactor ?? 0.3)
     }
     
     public var body: some View {
@@ -90,7 +105,7 @@ public struct SleepSchedulePreferenceEditor: View {
         }
         return .hours(24) + end - start
     }
-
+    
     private var content: some View {
         ConfigurationPage(
             title: Text(LocalizedString("Sleep Schedule", comment: "Title for Sleep Schedule editor")),
@@ -104,10 +119,17 @@ public struct SleepSchedulePreferenceEditor: View {
                         .fixedSize(horizontal: false, vertical: true)
 
                     Toggle(isOn: $isSleepScheduleEnabled) {
-                        Text("🚧 Enable Sleep Schedule")
+                        Text(LocalizedString("🚧 Enable Sleep Schedule", comment: "Enabling sleep schedule toggle label"))
                     }.animation(.default, value: isSleepScheduleEnabled)
                     
                     if (isSleepScheduleEnabled) {
+                        List {
+                            Picker(LocalizedString("Absorption Slowdown", comment: "Absorption slowdown picker label"), selection: $slowdownFactor) {
+                                ForEach(factors, id: \.self) { factor in
+                                    Text(percentFormatter.string(from: factor)!)
+                                }
+                            }.pickerStyle(.wheel)
+                        }
                         HStack {
                             TimePicker(
                                 offsetFromMidnight: $start,
@@ -162,10 +184,7 @@ public struct SleepSchedulePreferenceEditor: View {
         viewModel.updateSleepScheduleEnabled(isSleepScheduleEnabled)
         if isSleepScheduleEnabled {
             viewModel.updateSleepSchedule(
-                SleepSchedule(
-                    start: Date(timeIntervalSince1970: start),
-                    duration: sleepTime
-                )
+                SleepSchedule(start: start, duration: sleepTime, slowdownFactor: slowdownFactor)
             )
         }
         didSave?()
