@@ -64,7 +64,7 @@ public struct SleepSchedulePreferenceEditor: View {
         _isSleepScheduleEnabled = State(initialValue: viewModel.isSleepScheduleEnabled)
         _start = State(initialValue: viewModel.sleepSchedule?.start ?? .hours(22))
         _end = State(initialValue:  SleepSchedulePreferenceEditor.getEnd(viewModel.sleepSchedule) ??  .hours(6))
-        _slowdownFactor = State(initialValue: viewModel.sleepSchedule?.slowdownFactor ?? 0.3)
+        _slowdownFactor = State(initialValue: viewModel.sleepSchedule?.slowdownFactor ?? factors[factors.count/2])
     }
     
     public var body: some View {
@@ -75,7 +75,7 @@ public struct SleepSchedulePreferenceEditor: View {
     private var settingsChanged: Bool {
         isSleepScheduleEnabled != initialEnabled
         || (isSleepScheduleEnabled && (initialStart == nil || initialEnd == nil))
-        || (isSleepScheduleEnabled && (start != initialStart! || end != initialEnd!))
+        || (isSleepScheduleEnabled && (start != initialStart! || end != initialEnd! || slowdownFactor != initialSlowdownFactor))
     }
 
     private var contentWithCancel: some View {
@@ -106,6 +106,37 @@ public struct SleepSchedulePreferenceEditor: View {
         return .hours(24) + end - start
     }
     
+    private var sleepScheduleConfiguration: some View {
+        VStack {
+            HStack {
+                // workaround for custom label issues in Picker
+                
+                Text(LocalizedString("Absorption Slowdown", comment: "Absorption slowdown label"))
+                Spacer()
+                Picker(selection: $slowdownFactor, label: EmptyView()) {
+                    ForEach(factors, id: \.self) { factor in
+                        Text(percentFormatter.string(from: factor)!)
+                    }
+                }.pickerStyle(.menu)
+            }
+            Divider()
+            HStack {
+                TimePicker(
+                    offsetFromMidnight: $start,
+                    bounds: 0...(TimeInterval(hours: 24) - .minutes(15)),
+                    stride: .minutes(15)
+                )
+                .accessibility(identifier: "start_time_picker")
+                Text(" - ")
+                TimePicker(
+                    offsetFromMidnight: $end,
+                    bounds: 0...(TimeInterval(hours: 24) - .minutes(15)),
+                    stride: .minutes(15)
+                )
+            }
+        }
+    }
+    
     private var content: some View {
         ConfigurationPage(
             title: Text(LocalizedString("Sleep Schedule", comment: "Title for Sleep Schedule editor")),
@@ -121,30 +152,9 @@ public struct SleepSchedulePreferenceEditor: View {
                     Toggle(isOn: $isSleepScheduleEnabled) {
                         Text(LocalizedString("🚧 Enable Sleep Schedule", comment: "Enabling sleep schedule toggle label"))
                     }.animation(.default, value: isSleepScheduleEnabled)
-                    
-                    if (isSleepScheduleEnabled) {
-                        List {
-                            Picker(LocalizedString("Absorption Slowdown", comment: "Absorption slowdown picker label"), selection: $slowdownFactor) {
-                                ForEach(factors, id: \.self) { factor in
-                                    Text(percentFormatter.string(from: factor)!)
-                                }
-                            }.pickerStyle(.wheel)
-                        }
-                        HStack {
-                            TimePicker(
-                                offsetFromMidnight: $start,
-                                bounds: 0...(TimeInterval(hours: 24) - .minutes(15)),
-                                stride: .minutes(15)
-                            )
-                            .accessibility(identifier: "start_time_picker")
-                            Text(" - ")
-                            TimePicker(
-                                offsetFromMidnight: $end,
-                                bounds: 0...(TimeInterval(hours: 24) - .minutes(15)),
-                                stride: .minutes(15)
-                            )
-                        }
-                        .transition(.slide)
+
+                    if isSleepScheduleEnabled {
+                        sleepScheduleConfiguration.transition(.slide)
                     }
                 }
             },

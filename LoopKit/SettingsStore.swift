@@ -394,7 +394,7 @@ extension StoredSettings: Codable {
                   defaultRapidActingModel: try container.decodeIfPresent(StoredInsulinModel.self, forKey: .defaultRapidActingModel),
                   basalRateSchedule: try container.decodeIfPresent(BasalRateSchedule.self, forKey: .basalRateSchedule),
                   insulinSensitivitySchedule: try container.decodeIfPresent(InsulinSensitivitySchedule.self, forKey: .insulinSensitivitySchedule),
-                  sleepSchedule: try container.decodeIfPresent(SleepSchedule.self, forKey: .sleepSchedule),
+                  sleepSchedule: try container.decodeIfPresent(SleepSchedule.self, forKey: .sleepSchedule_v2),
                   carbRatioSchedule: try container.decodeIfPresent(CarbRatioSchedule.self, forKey: .carbRatioSchedule),
                   notificationSettings: try container.decodeIfPresent(NotificationSettings.self, forKey: .notificationSettings),
                   controllerDevice: try container.decodeIfPresent(ControllerDevice.self, forKey: .controllerDevice),
@@ -425,7 +425,7 @@ extension StoredSettings: Codable {
         try container.encodeIfPresent(defaultRapidActingModel, forKey: .defaultRapidActingModel)
         try container.encodeIfPresent(basalRateSchedule, forKey: .basalRateSchedule)
         try container.encodeIfPresent(insulinSensitivitySchedule, forKey: .insulinSensitivitySchedule)
-        try container.encodeIfPresent(sleepSchedule, forKey: .sleepSchedule)
+        try container.encodeIfPresent(sleepSchedule, forKey: .sleepSchedule_v2)
         try container.encodeIfPresent(carbRatioSchedule, forKey: .carbRatioSchedule)
         try container.encodeIfPresent(notificationSettings, forKey: .notificationSettings)
         try container.encodeIfPresent(controllerDevice, forKey: .controllerDevice)
@@ -470,7 +470,7 @@ extension StoredSettings: Codable {
         case defaultRapidActingModel
         case basalRateSchedule
         case insulinSensitivitySchedule
-        case sleepSchedule
+        case sleepSchedule_v2
         case carbRatioSchedule
         case notificationSettings
         case controllerDevice
