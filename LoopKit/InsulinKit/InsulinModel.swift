@@ -52,7 +52,7 @@ public struct SleepSchedule : Equatable {
         self.slowdownFactor = min(SleepSchedule.maxSlowdownFactor, slowdownFactor)
     }
     
-    public func intersection(with interval: DateInterval) -> TimeInterval {
+    fileprivate func intersection(with interval: DateInterval) -> TimeInterval {
         let intervalDays = floor(interval.duration / .hours(24))
         let offsetInterval = DateInterval(start: interval.start, duration: interval.duration - intervalDays * .hours(24))
         
@@ -67,6 +67,19 @@ public struct SleepSchedule : Equatable {
         result += offsetInterval.intersection(with: interval3)?.duration ?? 0
         
         return result
+    }
+    
+    fileprivate func firstExpandedInterval(of interval: DateInterval) -> DateInterval? {
+        var testInterval = DateInterval(start: interval.start.dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(start - .hours(24)), duration: duration)
+        
+        for _ in 0...2 {
+            if let intersection = interval.intersection(with: testInterval), intersection.duration > 0 {
+                let maxDuration = testInterval.end.timeIntervalSince(intersection.start) * (1 - slowdownFactor)
+                return DateInterval(start: intersection.start, duration: min(maxDuration, intersection.duration) / (1 - slowdownFactor))
+            }
+            testInterval = DateInterval(start: testInterval.start.addingTimeInterval(.hours(24)), duration: testInterval.duration)
+        }
+        return nil
     }
     
     static public func == (lhs: SleepSchedule, rhs: SleepSchedule) -> Bool {
@@ -104,11 +117,20 @@ public extension InsulinModel {
         guard let sleepSchedule = sleepSchedule else {
             return effectDuration
         }
+
+        var result = delay
+
+        var interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: effectDuration - delay)
         
-        let interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: effectDuration - delay)
-        let slowdownPeriod = sleepSchedule.intersection(with: interval)
+        while interval.duration > 0, let expanded = sleepSchedule.firstExpandedInterval(of: interval) {
+            let nonExpandedDuration = expanded.start.timeIntervalSince(interval.start)
+            result += nonExpandedDuration
+            result += expanded.duration
+            let consumedDuration = nonExpandedDuration + expanded.duration * (1 - sleepSchedule.slowdownFactor)
+            interval = DateInterval(start: interval.end, duration: interval.duration - consumedDuration)
+        }
         
-        return effectDuration - slowdownPeriod + slowdownPeriod / (1 - sleepSchedule.slowdownFactor)
+        return result + interval.duration
     }
 
     var maxPossibleEffectDuration: TimeInterval {

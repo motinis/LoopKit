@@ -438,8 +438,8 @@ class InsulinMathTests: XCTestCase {
         schedule = SleepSchedule(start: now, duration: .hours(24), slowdownFactor: SleepSchedule.maxSlowdownFactor)
         scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
         timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * (1 - SleepSchedule.maxSlowdownFactor) }
-        XCTAssertEqual(insulinModel.delay + (duration - insulinModel.delay) / (1 - SleepSchedule.maxSlowdownFactor), insulinModel.maxPossibleEffectDuration)
-        XCTAssertEqual(insulinModel.effectDuration(at: now, sleepSchedule: schedule), insulinModel.maxPossibleEffectDuration)
+        XCTAssertEqual(insulinModel.delay + (duration - insulinModel.delay) / (1 - SleepSchedule.maxSlowdownFactor), insulinModel.maxPossibleEffectDuration, accuracy: 0.001)
+        XCTAssertEqual(insulinModel.effectDuration(at: now, sleepSchedule: schedule), insulinModel.maxPossibleEffectDuration, accuracy: 0.001)
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
 
         
@@ -449,7 +449,7 @@ class InsulinMathTests: XCTestCase {
             $0 < delay ? $0 :
                 $0 < 60 ? delay + ($0 - delay) * 0.7 :
                     $0 - (60 - delay) * 0.3 }
-        XCTAssertEqual(duration + (schedule.duration - insulinModel.delay) * 0.3 / 0.7, scheduleEffectDuration)
+        XCTAssertEqual(duration + (schedule.duration - insulinModel.delay) * 0.3, scheduleEffectDuration, accuracy: 0.001)
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
         
         
@@ -459,14 +459,14 @@ class InsulinMathTests: XCTestCase {
             $0 < 60 ? $0 :
                 $0 < 180 ? $0 - ($0 - 60) * 0.2 :
                 $0 - 120 * 0.2 }
-        XCTAssertEqual(duration + schedule.duration * 0.2 / 0.8, scheduleEffectDuration)
+        XCTAssertEqual(duration + schedule.duration * 0.2, scheduleEffectDuration, accuracy: 0.001)
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
         
         
         schedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .hours(12), slowdownFactor: 0.4)
         scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
         timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.4 }
-        XCTAssertEqual(duration + (duration - .minutes(60)) * 0.4 / 0.6, scheduleEffectDuration)
+        XCTAssertEqual(duration + (duration - .minutes(60)) * 0.4 / 0.6, scheduleEffectDuration, accuracy: 0.001)
         verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
     }
     
