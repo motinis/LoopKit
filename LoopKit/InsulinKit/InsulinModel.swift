@@ -127,7 +127,8 @@ public extension InsulinModel {
             result += nonExpandedDuration
             result += expanded.duration
             let consumedDuration = nonExpandedDuration + expanded.duration * (1 - sleepSchedule.slowdownFactor)
-            interval = DateInterval(start: interval.end, duration: interval.duration - consumedDuration)
+            // since consumedDuration is calculated it is possible that it exceeds interval.duration (e.g. by 1 ulp)
+            interval = DateInterval(start: interval.end, duration: max(0, interval.duration - consumedDuration))
         }
         
         return result + interval.duration
