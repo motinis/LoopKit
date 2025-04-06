@@ -864,6 +864,7 @@
 		C1FAEC1D264AD6B400A3250B /* DeviceStatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1FAEC1C264AD6B400A3250B /* DeviceStatusBadge.swift */; };
 		C1FAEC1F264AE12700A3250B /* UIImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B47ECF8725DC20810024A54D /* UIImage.swift */; };
 		C1FAEC21264AEEA300A3250B /* UIImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1FAEC20264AEEA300A3250B /* UIImage.swift */; };
+		CD3DEEEB2DA2971200AF2661 /* MealBolusPreferenceEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD3DEEEA2DA2971200AF2661 /* MealBolusPreferenceEditor.swift */; };
 		CD7F04592D89AE5E005FB691 /* SleepSchedulePreferencesEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7F04582D89AE52005FB691 /* SleepSchedulePreferencesEditor.swift */; };
 		DD13BC702C3C71A70062313B /* BasalLockEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD13BC6F2C3C71A70062313B /* BasalLockEditor.swift */; };
 		DD13BC722C3C74CD0062313B /* PreferencesGuardrailWarning.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD13BC712C3C74CD0062313B /* PreferencesGuardrailWarning.swift */; };
@@ -878,7 +879,6 @@
 		DDAF746729F422C600719F0A /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAF746629F422C600719F0A /* ProfileView.swift */; };
 		DDAF746929F4234000719F0A /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAF746829F4234000719F0A /* ProfileViewModel.swift */; };
 		DDCFC91E2AA9F702003DE656 /* RenameProfileEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCFC91D2AA9F702003DE656 /* RenameProfileEditor.swift */; };
-		DDDF6F402D4783A800884336 /* MealBolusPreferenceEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDF6F3F2D47839700884336 /* MealBolusPreferenceEditor.swift */; };
 		E9077D2724ACD59F0066A88D /* InformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9077D2624ACD59F0066A88D /* InformationView.swift */; };
 		E9077D2A24ACDE2C0066A88D /* CorrectionRangeInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9077D2924ACDE2C0066A88D /* CorrectionRangeInformationView.swift */; };
 		E9086B2924B39EDC0062F5C8 /* ChartsTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9086B2824B39EDC0062F5C8 /* ChartsTableViewController.swift */; };
@@ -1938,6 +1938,7 @@
 		C1FDCC0A29C786F90056E652 /* sk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sk; path = sk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C1FDCC0B29C786F90056E652 /* sk */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = sk; path = sk.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C1FF3D4E29C786A900BDC1EC /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = he; path = he.lproj/Localizable.strings; sourceTree = "<group>"; };
+		CD3DEEEA2DA2971200AF2661 /* MealBolusPreferenceEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealBolusPreferenceEditor.swift; sourceTree = "<group>"; };
 		CD7F04582D89AE52005FB691 /* SleepSchedulePreferencesEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepSchedulePreferencesEditor.swift; sourceTree = "<group>"; };
 		DD13BC6F2C3C71A70062313B /* BasalLockEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BasalLockEditor.swift; sourceTree = "<group>"; };
 		DD13BC712C3C74CD0062313B /* PreferencesGuardrailWarning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesGuardrailWarning.swift; sourceTree = "<group>"; };
@@ -1952,7 +1953,6 @@
 		DDAF746629F422C600719F0A /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		DDAF746829F4234000719F0A /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
 		DDCFC91D2AA9F702003DE656 /* RenameProfileEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenameProfileEditor.swift; sourceTree = "<group>"; };
-		DDDF6F3F2D47839700884336 /* MealRecommendationPreferenceEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealRecommendationPreferenceEditor.swift; sourceTree = "<group>"; };
 		E9077D2624ACD59F0066A88D /* InformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InformationView.swift; sourceTree = "<group>"; };
 		E9077D2924ACDE2C0066A88D /* CorrectionRangeInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CorrectionRangeInformationView.swift; sourceTree = "<group>"; };
 		E9086B2824B39EDC0062F5C8 /* ChartsTableViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartsTableViewController.swift; sourceTree = "<group>"; };
@@ -3338,8 +3338,7 @@
 			children = (
 				CD7F04582D89AE52005FB691 /* SleepSchedulePreferencesEditor.swift */,
 				12D4A3FD2D5E23EB00D60B40 /* InsulinModelPreferenceEditor.swift */,
-				DDDF6F3F2D47839700884336 /* MealRecommendationPreferenceEditor.swift */,
-				DDDF6F3F2D47839700884336 /* MealBolusPreferenceEditor.swift */,
+				CD3DEEEA2DA2971200AF2661 /* MealBolusPreferenceEditor.swift */,
 				DD545A5A2B80ECB900915F95 /* PreferencesView.swift */,
 				DD13BC6F2C3C71A70062313B /* BasalLockEditor.swift */,
 				DD13BC712C3C74CD0062313B /* PreferencesGuardrailWarning.swift */,
@@ -4105,7 +4104,6 @@
 				43F5035A21059AF7009FA89A /* AuthenticationTableViewCell.swift in Sources */,
 				E916F56924AD32F000BE3547 /* CorrectionRangeOverridesEditor.swift in Sources */,
 				C18733B029B9492300519CDF /* NibLoadable.swift in Sources */,
-				DDDF6F402D4783A800884336 /* MealBolusPreferenceEditor.swift in Sources */,
 				C1E4B30A242E99A800E70CCB /* Image.swift in Sources */,
 				B4A2AAB1240830A30066563F /* LabeledTextField.swift in Sources */,
 				A9D3FF0B2A6C198C000C891D /* CGPoint.swift in Sources */,
@@ -4163,6 +4161,7 @@
 				C188B83422CC16AC0051760A /* InsulinSensitivityScheduleViewController.swift in Sources */,
 				895FE08822011F0C00FCF18A /* DoubleRangeTableViewCell.swift in Sources */,
 				E9086B2924B39EDC0062F5C8 /* ChartsTableViewController.swift in Sources */,
+				CD3DEEEB2DA2971200AF2661 /* MealBolusPreferenceEditor.swift in Sources */,
 				43BA7187201EE7090058961E /* GlucoseRangeScheduleTableViewController.swift in Sources */,
 				B46B62AF23FF0BF6001E69BA /* SectionHeader.swift in Sources */,
 				43BA7183201EE7090058961E /* DailyQuantityScheduleTableViewController.swift in Sources */,
