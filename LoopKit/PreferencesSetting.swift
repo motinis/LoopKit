@@ -10,7 +10,7 @@ import Foundation
 
 public enum PreferencesSetting {
     case basalLock
-    case mealRecommendationPreferences
+    case mealBolusPreferences
     case insulinModelPreferences
     case sleepSchedule
 }
@@ -22,7 +22,7 @@ public extension PreferencesSetting {
         switch self {
         case .basalLock:
             return LocalizedString("Basal Lock", comment: "Title text for basal lock setting")
-        case .mealRecommendationPreferences:
+        case .mealBolusPreferences:
             return LocalizedString("Meal Bolus Defaults", comment: "Title text for Meal Bolus Defaults")
         case .insulinModelPreferences:
             return LocalizedString("Insulin Model Options", comment: "Title text for Insulin Model Options")
@@ -39,8 +39,8 @@ public extension PreferencesSetting {
         switch self {
         case .basalLock:
             return String(format: LocalizedString("Basal Lock prevents the basal rate from being throttled if the blood glucose is above a certain level.", comment: "Descriptive text for basal lock (1: app name)"), appName)
-        case .mealRecommendationPreferences:
-            return String(format: LocalizedString("Choose which effects to include for initial Bolus recommendation at meal entry. By default, Loop includes these carbohydrate and glucose effects.", comment: "Descriptive text for Meal Bolus Defaults for (1: app name)"), appName)
+        case .mealBolusPreferences:
+            return String(format: LocalizedString("Choose which effects to include for initial Bolus recommendation at meal entry. By default, Loop includes all carbohydrate and glucose effects.\nYou can also choose for Loop to display carb entries which may be duplicates of the current meal.", comment: "Descriptive text for Meal Bolus Defaults for (1: app name)"), appName)
         case .insulinModelPreferences:
             return String(format: LocalizedString("Choose alternative insulin model behaviors", comment: "Descriptive text for Insulin Model Preferences for (1: app name)"), appName)
         case .sleepSchedule:

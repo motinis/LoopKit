@@ -19,13 +19,15 @@ public struct CarbQuantityRow: View {
     
     @State private var carbInput: String = ""
     
-    private let formatter: NumberFormatter = {
+    static public let numberFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.maximumIntegerDigits = 3
         formatter.maximumFractionDigits = 1
         return formatter
     }()
+    
+    private let formatter = Self.numberFormatter
     
     public init(quantity: Binding<Double?>, isFocused: Binding<Bool>, title: String, preferredCarbUnit: HKUnit = .gram()) {
         self._quantity = quantity
