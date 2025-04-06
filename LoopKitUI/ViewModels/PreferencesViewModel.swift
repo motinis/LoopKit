@@ -16,6 +16,7 @@ public class PreferencesViewModel: ObservableObject {
     @Published public var isCarbEntryExcluded: Bool
     @Published public var isCobCorrectionExcluded: Bool
     @Published public var isBgCorrectionExcluded: Bool
+    @Published public var isDetectMealDuplicatesEnabled: Bool
 
     private var preferencesProvider: PreferencesProvider
     
@@ -26,6 +27,7 @@ public class PreferencesViewModel: ObservableObject {
         self.isCarbEntryExcluded = preferencesProvider.isCarbEntryExcluded
         self.isCobCorrectionExcluded = preferencesProvider.isCobCorrectionExcluded
         self.isBgCorrectionExcluded = preferencesProvider.isBgCorrectionExcluded
+        self.isDetectMealDuplicatesEnabled = preferencesProvider.isDetectMealDuplicatesEnabled
     }
     
     public func updateBasalLockThreshold(_ newValue: HKQuantity) {
@@ -52,4 +54,10 @@ public class PreferencesViewModel: ObservableObject {
         preferencesProvider.isBgCorrectionExcluded = newValue
         self.isBgCorrectionExcluded = newValue
     }
+    
+    public func updateDetectDuplicateMealsEnabled(_ newValue: Bool) {
+        preferencesProvider.isDetectMealDuplicatesEnabled = newValue
+        self.isDetectMealDuplicatesEnabled = newValue
+    }
+
 }

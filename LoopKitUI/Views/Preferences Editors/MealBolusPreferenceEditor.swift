@@ -10,7 +10,7 @@ import SwiftUI
 import HealthKit
 import LoopKit
 
-public struct MealRecommendationPreferenceEditor: View {
+public struct MealBolusPreferenceEditor: View {
     @Environment(\.dismissAction) private var dismiss
     @Environment(\.authenticate) private var authenticate
     @Environment(\.appName) private var appName
@@ -21,6 +21,7 @@ public struct MealRecommendationPreferenceEditor: View {
     @State private var isCarbIncluded: Bool
     @State private var isCOBIncluded: Bool
     @State private var isBGCorrectionIncluded: Bool
+    @State private var isDetectDuplicateMealsEnabled: Bool
 
     private var initialCarbIncluded: Bool {
         !viewModel.isCarbEntryExcluded
@@ -31,6 +32,9 @@ public struct MealRecommendationPreferenceEditor: View {
     private var initialBgIncluded: Bool {
         !viewModel.isBgCorrectionExcluded
     }
+    private var initialDetectDuplicateMealsEnabled: Bool {
+        viewModel.isDetectMealDuplicatesEnabled
+    }
 
     public init(preferencesViewModel: PreferencesViewModel, didSave: (() -> Void)? = nil) {
         self.viewModel = preferencesViewModel
@@ -38,6 +42,7 @@ public struct MealRecommendationPreferenceEditor: View {
         _isCarbIncluded = State(initialValue: !preferencesViewModel.isCarbEntryExcluded)
         _isCOBIncluded = State(initialValue: !preferencesViewModel.isCobCorrectionExcluded)
         _isBGCorrectionIncluded = State(initialValue: !preferencesViewModel.isBgCorrectionExcluded)
+        _isDetectDuplicateMealsEnabled = State(initialValue: preferencesViewModel.isDetectMealDuplicatesEnabled)
     }
 
     public var body: some View {
@@ -87,6 +92,7 @@ public struct MealRecommendationPreferenceEditor: View {
                     Toggle("Include Carb Entry", isOn: $isCarbIncluded)
                     Toggle("Include COB Correction", isOn: $isCOBIncluded)
                     Toggle("Include Glucose Correction", isOn: $isBGCorrectionIncluded)
+                    Toggle("Detect Duplicate Meals", isOn: $isDetectDuplicateMealsEnabled)
                 }
             },
             actionAreaContent: {
@@ -100,7 +106,8 @@ public struct MealRecommendationPreferenceEditor: View {
     private var saveButtonState: ConfigurationPageActionButtonState {
         if isCarbIncluded != initialCarbIncluded
             || isCOBIncluded != initialCobIncluded
-            || isBGCorrectionIncluded != initialBgIncluded {
+            || isBGCorrectionIncluded != initialBgIncluded
+            || isDetectDuplicateMealsEnabled != initialDetectDuplicateMealsEnabled {
             return .enabled
         }
         return .disabled
@@ -109,8 +116,8 @@ public struct MealRecommendationPreferenceEditor: View {
     private var description: Text {
         Text(
             LocalizedString(
-                "Meal Bolus Defaults allow you to choose which effects are included by default for bolus recommendations. Excluded effects are summed with the negative Max Bolus Limit and Glucose Safety Theshold values. If the sum is positive, then they are all excluded. Otherwise, the effects are already covered, and no exclusion is necessary.",
-                comment: "Description for Meal Recommendation Preference Editor"
+                "Meal Bolus Defaults allow you to choose which effects are included by default for bolus recommendations. Excluded effects are summed with the negative Max Bolus Limit and Glucose Safety Theshold values. If the sum is positive, then they are all excluded. Otherwise, the effects are already covered, and no exclusion is necessary.\n\nYou may also choose whether Loop should check for duplicate carb entries in the 15 minutes prior to the current meal.",
+                comment: "Description for Meal Bolus Preference Editor"
             )
         )
     }
@@ -119,6 +126,7 @@ public struct MealRecommendationPreferenceEditor: View {
         viewModel.updateCarbEntryExcluded(!isCarbIncluded)
         viewModel.updateCobCorrectionExcluded(!isCOBIncluded)
         viewModel.updateBgCorrectionExcluded(!isBGCorrectionIncluded)
+        viewModel.updateDetectDuplicateMealsEnabled(isDetectDuplicateMealsEnabled)
         didSave?()
         dismiss()
     }

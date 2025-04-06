@@ -3333,6 +3333,7 @@
 			isa = PBXGroup;
 			children = (
 				DDDF6F3F2D47839700884336 /* MealRecommendationPreferenceEditor.swift */,
+				DDDF6F3F2D47839700884336 /* MealBolusPreferenceEditor.swift */,
 				DD545A5A2B80ECB900915F95 /* PreferencesView.swift */,
 				DD13BC6F2C3C71A70062313B /* BasalLockEditor.swift */,
 				DD13BC712C3C74CD0062313B /* PreferencesGuardrailWarning.swift */,
@@ -4098,7 +4099,7 @@
 				43F5035A21059AF7009FA89A /* AuthenticationTableViewCell.swift in Sources */,
 				E916F56924AD32F000BE3547 /* CorrectionRangeOverridesEditor.swift in Sources */,
 				C18733B029B9492300519CDF /* NibLoadable.swift in Sources */,
-				DDDF6F402D4783A800884336 /* MealRecommendationPreferenceEditor.swift in Sources */,
+				DDDF6F402D4783A800884336 /* MealBolusPreferenceEditor.swift in Sources */,
 				C1E4B30A242E99A800E70CCB /* Image.swift in Sources */,
 				B4A2AAB1240830A30066563F /* LabeledTextField.swift in Sources */,
 				A9D3FF0B2A6C198C000C891D /* CGPoint.swift in Sources */,
