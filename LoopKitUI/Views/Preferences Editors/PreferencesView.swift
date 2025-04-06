@@ -95,7 +95,7 @@ extension PreferencesView {
         var cards: [Card] = []
         
         cards.append(basalLockSection)
-        cards.append(mealRecommendationPreferenceSection)
+        cards.append(mealBolusPreferenceSection)
         cards.append(insulinModelPreferenceSection)
         cards.append(sleepSchedulePreferencesSection)
 
@@ -107,8 +107,8 @@ extension PreferencesView {
         switch setting {
         case .basalLock:
             BasalLockEditor(preferencesViewModel: viewModel, didSave: dismiss)
-        case .mealRecommendationPreferences:
-            MealRecommendationPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
+        case .mealBolusPreferences:
+            MealBolusPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
         case .insulinModelPreferences:
             InsulinModelPreferenceEditor(preferencesViewModel: viewModel, didSave: dismiss)
         case .sleepSchedule:
@@ -150,13 +150,14 @@ extension PreferencesView {
         }
     }
 
-    private var mealRecommendationPreferenceSection: Card {
-        card(for: .mealRecommendationPreferences) {
+    private var mealBolusPreferenceSection: Card {
+        card(for: .mealBolusPreferences) {
             SectionDivider()
             VStack(alignment: .leading, spacing: 8) {
                 checkmarkRow(title: "Carb Entry", included: !viewModel.isCarbEntryExcluded)
                 checkmarkRow(title: "COB Correction", included: !viewModel.isCobCorrectionExcluded)
                 checkmarkRow(title: "Glucose Correction", included: !viewModel.isBgCorrectionExcluded)
+                checkmarkRow(title: "Detect Duplicate Meals", included: viewModel.isDetectMealDuplicatesEnabled)
             }
             .padding(.vertical, 8)
         }

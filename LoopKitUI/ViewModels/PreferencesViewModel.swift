@@ -16,6 +16,7 @@ public class PreferencesViewModel: ObservableObject {
     @Published public var isCarbEntryExcluded: Bool
     @Published public var isCobCorrectionExcluded: Bool
     @Published public var isBgCorrectionExcluded: Bool
+    @Published public var isDetectMealDuplicatesEnabled: Bool
     @Published public var useNewChildInsulinModel: Bool
     @Published public var useRapidActingChildInsulinModel: Bool
     @Published public var useFastLyumjevInsulinModel: Bool
@@ -31,6 +32,7 @@ public class PreferencesViewModel: ObservableObject {
         self.isCarbEntryExcluded = preferencesProvider.isCarbEntryExcluded
         self.isCobCorrectionExcluded = preferencesProvider.isCobCorrectionExcluded
         self.isBgCorrectionExcluded = preferencesProvider.isBgCorrectionExcluded
+        self.isDetectMealDuplicatesEnabled = preferencesProvider.isDetectMealDuplicatesEnabled
         self.useNewChildInsulinModel = preferencesProvider.useNewChildInsulinModel
         self.useRapidActingChildInsulinModel = preferencesProvider.useRapidActingChildInsulinModel
         self.useFastLyumjevInsulinModel = preferencesProvider.useFastLyumjevInsulinModel
@@ -63,6 +65,11 @@ public class PreferencesViewModel: ObservableObject {
         self.isBgCorrectionExcluded = newValue
     }
     
+    public func updateDetectDuplicateMealsEnabled(_ newValue: Bool) {
+        preferencesProvider.isDetectMealDuplicatesEnabled = newValue
+        self.isDetectMealDuplicatesEnabled = newValue
+    }
+    
     public func updateUseNewChildInsulinModel(_ newValue: Bool) {
         preferencesProvider.useNewChildInsulinModel = newValue
         self.useNewChildInsulinModel = newValue
@@ -86,5 +93,6 @@ public class PreferencesViewModel: ObservableObject {
     public func updateSleepSchedule(_ newValue: SleepSchedule?) {
         preferencesProvider.sleepSchedule = newValue
         self.sleepSchedule = newValue
-    }
+    }    
+
 }
