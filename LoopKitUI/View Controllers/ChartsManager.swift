@@ -128,9 +128,13 @@ open class ChartsManager {
     }
 
     // MARK: - State
+    
+    private var landscapeOrientation = UIDevice.current.orientation.isLandscape // note: if unknown we assume protrait!
 
     private var xAxisValues: [ChartAxisValue]? {
         didSet {
+            landscapeOrientation = UIDevice.current.orientation.isLandscape
+            
             if let xAxisValues = xAxisValues, xAxisValues.count > 1 {
                 xAxisModel = ChartAxisModel(axisValues: xAxisValues, lineColor: colors.axisLine, labelSpaceReservationMode: .fixed(20))
             } else {
@@ -198,13 +202,19 @@ open class ChartsManager {
         )
         xAxisValues.first?.hidden = true
         xAxisValues.last?.hidden = true
+        
+        if !UIDevice.current.orientation.isLandscape, xAxisValues.count > 9 {
+            for i in stride(from: 2, to: xAxisValues.count, by: 2) {
+                xAxisValues[i].hidden = true
+            }
+        }
 
         self.xAxisValues = xAxisValues
     }
 
     /// Runs any necessary steps before rendering charts
     public func prerender() {
-        if xAxisValues == nil {
+        if xAxisValues == nil || landscapeOrientation != UIDevice.current.orientation.isLandscape {
             generateXAxisValues()
         }
     }
