@@ -173,7 +173,6 @@ extension TherapySettingsViewModel {
     public func saveBasalRates(basalRates: BasalRateSchedule) {
         therapySettings.basalRateSchedule = basalRates
         delegate?.saveCompletion(therapySettings: therapySettings)
-        objectWillChange.send() // addresses issue 2267        
     }
     
     public func saveDeliveryLimits(limits: DeliveryLimits) {
