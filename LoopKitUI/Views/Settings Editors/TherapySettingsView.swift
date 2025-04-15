@@ -285,7 +285,7 @@ extension TherapySettingsView {
                                       unit: .internationalUnitsPerHour,
                                       guardrail: .basalRate(supportedBasalRates: supportedBasalRates))
                     .onAppear {
-                        DispatchQueue.main.async {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             let currSchedule = viewModel.therapySettings.basalRateSchedule
                             if basalRateSchedule != currSchedule {
                                 basalRateSchedule = currSchedule
