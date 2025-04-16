@@ -94,7 +94,7 @@ public struct BolusBreakdown {
     
     public init(fullCarbsAmount: Double? = nil, fullCobCorrectionAmount: Double, fullCorrectionAmount: Double) {
         if let fullCarbsAmount = fullCarbsAmount {
-            carbsAmount = fullCarbsAmount
+            carbsAmount = max(0, fullCarbsAmount)
             cobCorrectionAmount = max(fullCobCorrectionAmount - carbsAmount!, 0)
         } else {
             carbsAmount = nil
