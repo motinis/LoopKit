@@ -22,6 +22,7 @@ public protocol TherapySettingsViewModelDelegate: AnyObject {
 public class TherapySettingsViewModel: ObservableObject {
     
     @Published public var therapySettings: TherapySettings
+    @Published public var updateCounter: Int = 0
     private let initialTherapySettings: TherapySettings
     let sensitivityOverridesEnabled: Bool
     let adultChildInsulinModelSelectionEnabled: Bool
@@ -171,6 +172,7 @@ extension TherapySettingsViewModel {
     }
     
     public func saveBasalRates(basalRates: BasalRateSchedule) {
+        updateCounter += 1
         therapySettings.basalRateSchedule = basalRates
         delegate?.saveCompletion(therapySettings: therapySettings)
     }
