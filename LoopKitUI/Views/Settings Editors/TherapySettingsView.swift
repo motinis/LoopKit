@@ -29,7 +29,6 @@ public struct TherapySettingsView: View {
     private let mode: SettingsPresentationMode
 
     @ObservedObject var viewModel: TherapySettingsViewModel
-    @State var basalRateSchedule: BasalRateSchedule? // work-around for issue 2267
         
     private let actionButton: ActionButton?
 
@@ -38,7 +37,6 @@ public struct TherapySettingsView: View {
                 actionButton: ActionButton? = nil) {
         self.mode = mode
         self.viewModel = viewModel
-        self.basalRateSchedule = viewModel.therapySettings.basalRateSchedule 
         self.actionButton = actionButton
     }
         
@@ -270,7 +268,7 @@ extension TherapySettingsView {
 
     private var basalRatesSection: Card {
         card(for: .basalRate) {
-            if let schedule = basalRateSchedule,
+            if let schedule = viewModel.therapySettings.basalRateSchedule,
                let supportedBasalRates = viewModel.pumpSupportedIncrements()?.basalRates
             {
                 let items = schedule.items
@@ -284,14 +282,6 @@ extension TherapySettingsView {
                                       value:  items[index].value,
                                       unit: .internationalUnitsPerHour,
                                       guardrail: .basalRate(supportedBasalRates: supportedBasalRates))
-                    .onAppear {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            let currSchedule = viewModel.therapySettings.basalRateSchedule
-                            if basalRateSchedule != currSchedule {
-                                basalRateSchedule = currSchedule
-                            }
-                        }
-                    }
                 }
                 SectionDivider()
                 HStack {
