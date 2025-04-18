@@ -109,18 +109,19 @@ public extension InsulinModel {
         return percentEffectRemaining(at: time - sleepSchedule.slowdownFactor * sleepSchedule.intersection(with: interval))
     }
     
-    /// The expected duration, including any effect delay, of an insulin dose, from the time of the dose
+    /// Resolves the duration taking into account the given sleep schedule, which may extend it.
     /// - Parameters:
     ///   - doseDate: when the insulin was delivered
+    ///   - duration: the duration after doseDate to resolve
     ///   - sleepSchedule: during what period of time the absorption should be slowed down
-    func effectDuration(at doseDate: Date, sleepSchedule: SleepSchedule? = nil) -> TimeInterval {
-        guard let sleepSchedule = sleepSchedule else {
-            return effectDuration
+    func resolveDuration(at doseDate: Date, duration: TimeInterval, sleepSchedule: SleepSchedule? = nil) -> TimeInterval {
+        guard let sleepSchedule = sleepSchedule, duration > delay else {
+            return duration
         }
-
+        
         var result = delay
 
-        var interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: effectDuration - delay)
+        var interval = DateInterval(start: doseDate.addingTimeInterval(delay), duration: duration - delay)
         
         while interval.duration > 0, let expanded = sleepSchedule.firstExpandedInterval(of: interval) {
             let nonExpandedDuration = expanded.start.timeIntervalSince(interval.start)
@@ -128,10 +129,18 @@ public extension InsulinModel {
             result += expanded.duration
             let consumedDuration = nonExpandedDuration + expanded.duration * (1 - sleepSchedule.slowdownFactor)
             // since consumedDuration is calculated it is possible that it exceeds interval.duration (e.g. by 1 ulp)
-            interval = DateInterval(start: interval.end, duration: max(0, interval.duration - consumedDuration))
+            interval = DateInterval(start: expanded.end, duration: max(0, interval.duration - consumedDuration))
         }
         
         return result + interval.duration
+    }
+
+    /// The expected duration, including any effect delay, of an insulin dose, from the time of the dose
+    /// - Parameters:
+    ///   - doseDate: when the insulin was delivered
+    ///   - sleepSchedule: during what period of time the absorption should be slowed down
+    func effectDuration(at doseDate: Date, sleepSchedule: SleepSchedule? = nil) -> TimeInterval {
+        resolveDuration(at: doseDate, duration: effectDuration, sleepSchedule: sleepSchedule)
     }
 
     var maxPossibleEffectDuration: TimeInterval {
