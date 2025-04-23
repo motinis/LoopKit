@@ -52,6 +52,10 @@ public struct SleepSchedule : Equatable {
         self.slowdownFactor = min(SleepSchedule.maxSlowdownFactor, slowdownFactor)
     }
     
+    public func isAsleep(at date: Date) -> Bool {
+        return intersection(with: .init(start: date.addingTimeInterval(-1), duration: 2)) >= 1
+    }
+    
     fileprivate func intersection(with interval: DateInterval) -> TimeInterval {
         let intervalDays = floor(interval.duration / .hours(24))
         let offsetInterval = DateInterval(start: interval.start, duration: interval.duration - intervalDays * .hours(24))
