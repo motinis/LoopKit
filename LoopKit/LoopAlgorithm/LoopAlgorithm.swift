@@ -132,7 +132,7 @@ public actor LoopAlgorithm {
             throw AlgorithmError.incompleteSchedules
         }
 
-        let rcEffect = rc.computeEffect(
+        let (rcEffect, _) = rc.computeEffect(
             startingAt: latestGlucose,
             retrospectiveGlucoseDiscrepanciesSummed: retrospectiveGlucoseDiscrepanciesSummed,
             recencyInterval: TimeInterval(minutes: 15),

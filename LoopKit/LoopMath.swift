@@ -81,6 +81,38 @@ public enum LoopMath {
         return output
     }
 
+    
+    /**
+     Calculates a timeline of glucose effects from a variety of effects timelines.
+
+     Each effect timeline:
+     - Can be of arbitrary size and start date
+     - Should be in ascending order
+     - Should have aligning dates with any overlapping timelines to ensure a smooth result
+
+     - parameter effects:         The glucose effect timelines to apply to the prediction.
+
+     - returns: A timeline of glucose effects
+     */
+    public static func combine(_ effects: [[GlucoseEffect]]) -> [GlucoseEffect] {
+        let effects = effects.filter{!$0.isEmpty}
+        guard !effects.isEmpty else {
+            return []
+        }
+
+        guard effects.count > 1 else {
+            return effects[0]
+        }
+        
+      
+        let first = effects.min{$0[0].startDate < $1[0].startDate}![0]
+        let startingGlucose = SimpleGlucoseValue(startDate: first.startDate, quantity: HKQuantity(unit: .milligramsPerDeciliter, doubleValue: 0))
+        
+        let prediction = predictGlucose(startingAt: startingGlucose, effects: effects)
+            
+        return prediction.map{GlucoseEffect(startDate: $0.startDate, quantity: $0.quantity)}
+    }
+                                            
     /**
      Calculates a timeline of predicted glucose values from a variety of effects timelines.
 
