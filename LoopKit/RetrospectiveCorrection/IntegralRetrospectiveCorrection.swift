@@ -21,8 +21,6 @@ public class IntegralRetrospectiveCorrection: RetrospectiveCorrection {
     /// RetrospectiveCorrection protocol variables
     /// Standard effect duration
     let effectDuration: TimeInterval
-    /// Overall retrospective correction effect
-    public var totalGlucoseCorrectionEffect: HKQuantity?
     
     /**
      Integral retrospective correction parameters:
@@ -91,7 +89,7 @@ public class IntegralRetrospectiveCorrection: RetrospectiveCorrection {
         basalRate: Double,
         correctionRange: ClosedRange<HKQuantity>,
         retrospectiveCorrectionGroupingInterval: TimeInterval
-        ) -> [GlucoseEffect] {
+        ) -> (effect: [GlucoseEffect], totalGlucoseCorrectionEffect: HKQuantity?) {
         
         // Loop settings relevant for calculation of effect limits
         // let settings = UserDefaults.appGroup?.loopSettings ?? LoopSettings()
@@ -104,15 +102,14 @@ public class IntegralRetrospectiveCorrection: RetrospectiveCorrection {
             glucoseDate.timeIntervalSince(currentDiscrepancy.endDate) <= recencyInterval
             else {
                 ircStatus = "discrepancy not available, effect not computed."
-                totalGlucoseCorrectionEffect = nil
-                return( [] )
+                return ([], nil)
         }
         
         // Default values if we are not able to calculate integral retrospective correction
         ircStatus = "defaulted to standard RC, past discrepancies or user settings not available."
         let currentDiscrepancyValue = currentDiscrepancy.quantity.doubleValue(for: unit)
         var scaledCorrection = currentDiscrepancyValue
-        totalGlucoseCorrectionEffect = HKQuantity(unit: unit, doubleValue: currentDiscrepancyValue)
+        var totalGlucoseCorrectionEffect = HKQuantity(unit: unit, doubleValue: currentDiscrepancyValue)
         integralCorrectionEffectDuration = effectDuration
         
         // Calculate integral retrospective correction if past discrepancies over integration interval are available and if user settings are available
@@ -196,7 +193,7 @@ public class IntegralRetrospectiveCorrection: RetrospectiveCorrection {
         glucoseCorrectionEffect = startingGlucose.decayEffect(atRate: velocity, for: integralCorrectionEffectDuration!)
         
         // Return glucose correction effects
-        return( glucoseCorrectionEffect )
+            return( glucoseCorrectionEffect, totalGlucoseCorrectionEffect )
     }
     
     public var debugDescription: String {
@@ -216,7 +213,6 @@ public class IntegralRetrospectiveCorrection: RetrospectiveCorrection {
             "proportionalCorrection [mg/dL]: \(proportionalCorrection)",
             "integralCorrection [mg/dL]: \(integralCorrection)",
             "differentialCorrection [mg/dL]: \(differentialCorrection)",
-            "totalGlucoseCorrectionEffect: \(String(describing: totalGlucoseCorrectionEffect))",
             "integralCorrectionEffectDuration [min]: \(String(describing: integralCorrectionEffectDuration?.minutes))"
         ]
         
