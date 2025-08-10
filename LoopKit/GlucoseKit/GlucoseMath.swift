@@ -275,9 +275,6 @@ extension Collection where Element: GlucoseSampleValue, Index == Int {
             guard let startEffectValue = startEffectValue, let endEffectValue = endEffectValue else {
                 break
             }
-            
-            let startEffectValue = interpolateMgdL(startEffect, precedingStartEffect, startGlucose.startDate)
-            let endEffectValue = interpolateMgdL(endEffect, precedingEndEffect, endGlucose.startDate)
 
             let effectChange = endEffectValue - startEffectValue
             let discrepancy = glucoseChange - effectChange
