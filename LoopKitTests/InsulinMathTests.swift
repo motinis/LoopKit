@@ -413,11 +413,13 @@ class InsulinMathTests: XCTestCase {
     }
     
     func testIsAsleep() {
-        let now = Date()
-        let sleepSchedule = SleepSchedule(start: now, duration: .minutes(60), slowdownFactor: 0.3)
+        // asleep from 00:00 - 01:00 local time
+        let sleepSchedule = SleepSchedule(start: .hours(0), duration: .minutes(60), slowdownFactor: 0.3)
+        
+        let midnightTodayInUTC = Date().dateFlooredToTimeInterval(.hours(24)).addingTimeInterval((Double)(-TimeZone.current.secondsFromGMT()))
         
         for days in -1...1 {
-            let date = now.addingTimeInterval(.hours((Double(days) * 24.0)))
+            let date = midnightTodayInUTC.addingTimeInterval(.hours((Double(days) * 24.0)))
             XCTAssert(sleepSchedule.isAsleep(at: date))
             XCTAssert(sleepSchedule.isAsleep(at: date.addingTimeInterval(sleepSchedule.duration)))
             XCTAssertFalse(sleepSchedule.isAsleep(at: date.addingTimeInterval(-1)))
