@@ -412,6 +412,20 @@ class InsulinMathTests: XCTestCase {
 
     }
     
+    func testIsAsleep() {
+        let now = Date()
+        let sleepSchedule = SleepSchedule(start: now, duration: .minutes(60), slowdownFactor: 0.3)
+        
+        for days in -1...1 {
+            let date = now.addingTimeInterval(.hours((Double(days) * 24.0)))
+            XCTAssert(sleepSchedule.isAsleep(at: date))
+            XCTAssert(sleepSchedule.isAsleep(at: date.addingTimeInterval(sleepSchedule.duration)))
+            XCTAssertFalse(sleepSchedule.isAsleep(at: date.addingTimeInterval(-1)))
+            XCTAssertFalse(sleepSchedule.isAsleep(at: date.addingTimeInterval(60 * 60 + 1)))
+
+        }
+    }
+    
     fileprivate func verifyInsulinModelForSleepSchedule(_ schedule: SleepSchedule, _ scheduleEffectDuration: TimeInterval, _ timeFunc: (Double) -> Double, _ insulinModel: InsulinModel, _ now: Date) {
         
         for offset in 0...Int(scheduleEffectDuration.minutes.rounded(.up)) {
