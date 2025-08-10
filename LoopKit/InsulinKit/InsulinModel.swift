@@ -39,17 +39,14 @@ public struct SleepSchedule : Equatable {
     public let slowdownFactor: Double
     
     public init(start: TimeInterval, duration: TimeInterval, slowdownFactor: Double) {
-        self.init(start: Date(timeIntervalSince1970: start), duration: duration, slowdownFactor: slowdownFactor)
+        self.start = (start + .hours(24)).truncatingRemainder(dividingBy: .hours(24))
+        self.duration = min(duration, .hours(24))
+        self.slowdownFactor = slowdownFactor
     }
     
+    // start is taken as the time in the current TimeZone
     public init(start: Date, duration: TimeInterval, slowdownFactor: Double) {
-        self.init(DateInterval(start: start, duration: duration), slowdownFactor)
-    }
-    
-    public init(_ interval: DateInterval, _ slowdownFactor: Double) {
-        self.start = interval.start.timeIntervalSince(interval.start.dateFlooredToTimeInterval(.hours(24)))
-        self.duration = min(interval.duration, .hours(24))
-        self.slowdownFactor = min(SleepSchedule.maxSlowdownFactor, slowdownFactor)
+        self.init(start: start.timeIntervalSince(start.dateFlooredToTimeInterval(.hours(24))) + (Double)(TimeZone.current.secondsFromGMT()), duration: duration, slowdownFactor: slowdownFactor)
     }
     
     public func isAsleep(at date: Date) -> Bool {
@@ -62,7 +59,9 @@ public struct SleepSchedule : Equatable {
         
         var result = intervalDays * duration
         
-        let interval1 = DateInterval(start: interval.start.dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(start), duration: duration)
+        let utcStart = start - (Double)(TimeZone.current.secondsFromGMT())
+        
+        let interval1 = DateInterval(start: interval.start.dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(utcStart), duration: duration)
         let interval2 = DateInterval(start: interval1.start.addingTimeInterval(.hours(24)), duration: duration)
         let interval3 = DateInterval(start: interval1.start.addingTimeInterval(.hours(-24)), duration: duration)
         
@@ -74,7 +73,8 @@ public struct SleepSchedule : Equatable {
     }
     
     fileprivate func firstExpandedInterval(of interval: DateInterval) -> DateInterval? {
-        var testInterval = DateInterval(start: interval.start.dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(start - .hours(24)), duration: duration)
+        let utcStart = start - (Double)(TimeZone.current.secondsFromGMT())
+        var testInterval = DateInterval(start: interval.start.dateFlooredToTimeInterval(.hours(24)).addingTimeInterval(utcStart - .hours(24)), duration: duration)
         
         for _ in 0...2 {
             if let intersection = interval.intersection(with: testInterval), intersection.duration > 0 {
