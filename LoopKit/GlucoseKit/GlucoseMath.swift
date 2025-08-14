@@ -47,7 +47,8 @@ extension Collection where Element: SampleValue, Index == Int {
             
             if startResult == nil && element.startDate >= start {
                 startResult = Self.interpolate(first: precedingStartElement, second: element, at: start, unit: unit)
-            } else if endResult == nil && element.startDate >= end {
+            }
+            if endResult == nil && element.startDate >= end {
                 endResult = Self.interpolate(first: precedingEndElement, second: element, at: end, unit: unit)
                 break
             }
