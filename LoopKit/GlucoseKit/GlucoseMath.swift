@@ -139,14 +139,14 @@ extension BidirectionalCollection where Element: GlucoseSampleValue, Index == In
     ///   - duration: The duration of the effects
     ///   - delta: The time differential for the returned values
     ///   - velocityMaximum: The limit on how fast the momentum effect can be. Defaults to 4 mg/dL/min based on physiological rates, if nil passed.
+    ///   - velocityTransform: The transform to apply to the velocity before enforcing velocityMaximum
     /// - Returns: An array of glucose effects
     public func linearMomentumEffect(
         duration: TimeInterval = GlucoseMath.momentumDuration,
         delta: TimeInterval = GlucoseMath.defaultDelta,
-        velocityMaximum: HKQuantity? = nil
+        velocityMaximum: HKQuantity? = nil,
+        velocityTransform: ((HKQuantity) -> HKQuantity)? = nil
     ) -> [GlucoseEffect] {
-
-        let velocityMax = velocityMaximum ?? HKQuantity(unit: HKUnit.milligramsPerDeciliter.unitDivided(by: .minute()), doubleValue: 4.0)
 
         guard
             self.count > 2,  // Linear regression isn't much use without 3 or more entries.
@@ -160,6 +160,7 @@ extension BidirectionalCollection where Element: GlucoseSampleValue, Index == In
 
         /// Choose a unit to use during raw value calculation
         let unit = HKUnit.milligramsPerDeciliter
+        let unitPerSecond = unit.unitDivided(by: .second())
 
         let (slope: slope, intercept: _) = self.map { (
             x: $0.startDate.timeIntervalSince(firstSample.startDate),
@@ -170,7 +171,14 @@ extension BidirectionalCollection where Element: GlucoseSampleValue, Index == In
             return []
         }
 
-        let limitedSlope = Swift.min(slope, velocityMax.doubleValue(for: unit.unitDivided(by: .second())))
+        var effectiveSlope = slope
+        if let velocityTransform = velocityTransform {
+            effectiveSlope = velocityTransform(HKQuantity(unit: unitPerSecond, doubleValue: slope)).doubleValue(for: unitPerSecond)
+        }
+        
+        let velocityMax = velocityMaximum ?? HKQuantity(unit: HKUnit.milligramsPerDeciliter.unitDivided(by: .minute()), doubleValue: 4.0)
+        let limitedSlope = Swift.min(effectiveSlope, velocityMax.doubleValue(for: unitPerSecond))
+
         
         var date = startDate
         var values = [GlucoseEffect]()
