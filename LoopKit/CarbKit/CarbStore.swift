@@ -1114,7 +1114,7 @@ extension CarbStore {
     ///   - effectVelocities: A timeline of glucose effect velocities, ordered by start date
     /// - Returns: The carbs on-board value
     public func carbsOnBoard<Sample: CarbEntry>(
-        from samples: [Sample],
+        of samples: [Sample],
         at date: Date,
         effectVelocities: [GlucoseEffectVelocity]? = nil
     ) throws -> CarbValue {
