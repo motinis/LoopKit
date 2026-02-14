@@ -20,8 +20,6 @@ public class StandardRetrospectiveCorrection: RetrospectiveCorrection {
     /// RetrospectiveCorrection protocol variables
     /// Standard effect duration
     let effectDuration: TimeInterval
-    /// Overall retrospective correction effect
-    public var totalGlucoseCorrectionEffect: HKQuantity?
 
     /// All math is performed with glucose expressed in mg/dL
     private let unit = HKUnit.milligramsPerDeciliter
@@ -38,26 +36,25 @@ public class StandardRetrospectiveCorrection: RetrospectiveCorrection {
         basalRate: Double,
         correctionRange: ClosedRange<HKQuantity>,
         retrospectiveCorrectionGroupingInterval: TimeInterval
-    ) -> [GlucoseEffect] {
+    ) -> (effect: [GlucoseEffect], totalGlucoseCorrectionEffect: HKQuantity?) {
         // Last discrepancy should be recent, otherwise clear the effect and return
         let glucoseDate = startingGlucose.startDate
         guard let currentDiscrepancy = retrospectiveGlucoseDiscrepanciesSummed?.last,
             glucoseDate.timeIntervalSince(currentDiscrepancy.endDate) <= recencyInterval
         else {
-            totalGlucoseCorrectionEffect = nil
-            return []
+            return ([], nil)
         }
         
         // Standard retrospective correction math
         let currentDiscrepancyValue = currentDiscrepancy.quantity.doubleValue(for: unit)
-        totalGlucoseCorrectionEffect = HKQuantity(unit: unit, doubleValue: currentDiscrepancyValue)
+        let totalGlucoseCorrectionEffect = HKQuantity(unit: unit, doubleValue: currentDiscrepancyValue)
         
         let retrospectionTimeInterval = currentDiscrepancy.endDate.timeIntervalSince(currentDiscrepancy.startDate)
         let discrepancyTime = max(retrospectionTimeInterval, retrospectiveCorrectionGroupingInterval)
         let velocity = HKQuantity(unit: unit.unitDivided(by: .second()), doubleValue: currentDiscrepancyValue / discrepancyTime)
         
         // Update array of glucose correction effects
-        return startingGlucose.decayEffect(atRate: velocity, for: effectDuration)
+        return (startingGlucose.decayEffect(atRate: velocity, for: effectDuration), totalGlucoseCorrectionEffect)
     }
 
     public var debugDescription: String {

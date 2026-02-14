@@ -14,9 +14,6 @@ public protocol RetrospectiveCorrection: CustomDebugStringConvertible {
     /// The maximum interval of historical glucose discrepancies that should be provided to the computation
     static var retrospectionInterval: TimeInterval { get }
 
-    /// Overall retrospective correction effect
-    var totalGlucoseCorrectionEffect: HKQuantity? { get }
-
     /// Calculates overall correction effect based on timeline of discrepancies, and updates glucoseCorrectionEffect
     ///
     /// - Parameters:
@@ -27,7 +24,7 @@ public protocol RetrospectiveCorrection: CustomDebugStringConvertible {
     ///   - basalRate: Basal rate at time of initial glucose value
     ///   - correctionRange: Correction range at time of initial glucose value
     ///   - retrospectiveCorrectionGroupingInterval: Duration of discrepancy measurements
-    /// - Returns: Glucose correction effects
+    /// - Returns: Glucose correction effects and the overall retrospective correction effect
     func computeEffect(
         startingAt startingGlucose: GlucoseValue,
         retrospectiveGlucoseDiscrepanciesSummed: [GlucoseChange]?,
@@ -36,5 +33,5 @@ public protocol RetrospectiveCorrection: CustomDebugStringConvertible {
         basalRate: Double,
         correctionRange: ClosedRange<HKQuantity>,
         retrospectiveCorrectionGroupingInterval: TimeInterval
-    ) -> [GlucoseEffect]
+    ) -> (effect: [GlucoseEffect], totalGlucoseCorrectionEffect: HKQuantity?)
 }

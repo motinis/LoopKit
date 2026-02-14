@@ -10,22 +10,22 @@ public protocol InsulinModelProvider {
 }
 
 public struct PresetInsulinModelProvider: InsulinModelProvider {
-    var defaultRapidActingModel: InsulinModel?
+    var defaultRapidActingModel: ExponentialInsulinModelPreset?
     
-    public init(defaultRapidActingModel: InsulinModel?) {
+    public init(defaultRapidActingModel: ExponentialInsulinModelPreset?) {
         self.defaultRapidActingModel = defaultRapidActingModel
     }
     
     public func model(for type: InsulinType?) -> InsulinModel {
         switch type {
         case .fiasp:
-            return ExponentialInsulinModelPreset.fiasp
+            return ExponentialInsulinModelPreset.fiasp.model
         case .lyumjev:
-            return ExponentialInsulinModelPreset.lyumjev
+            return ExponentialInsulinModelPreset.lyumjev.model
         case .afrezza:
-            return ExponentialInsulinModelPreset.afrezza
+            return ExponentialInsulinModelPreset.afrezza.model
         default:
-            return defaultRapidActingModel ?? ExponentialInsulinModelPreset.rapidActingAdult
+            return (defaultRapidActingModel ?? ExponentialInsulinModelPreset.rapidActingAdult).model
         }
     }
 }
@@ -38,9 +38,29 @@ public struct StaticInsulinModelProvider: InsulinModelProvider {
         self.model = model
     }
     
+    public init(_ preset: ExponentialInsulinModelPreset) {
+        self.model = preset.model
+    }
+    
     public func model(for type: InsulinType?) -> InsulinModel {
         return model
     }
 }
 
+public struct OverridingInsulinModelProvider: InsulinModelProvider {
+    var delegate: InsulinModelProvider
+    var overrideProvider: (InsulinType?) -> InsulinModel?
+    
+    public init(_ delegate: InsulinModelProvider, _ overrideProvider: @escaping (InsulinType?) -> InsulinModel?) {
+        self.delegate = delegate
+        self.overrideProvider = overrideProvider
+    }
+    
+    public func model(for type: InsulinType?) -> any InsulinModel {
+        if let result = overrideProvider(type) {
+            return result
+        }
+        return delegate.model(for: type)
+    }
+}
 

@@ -107,13 +107,13 @@ public struct FoodTypeRow: View {
     }
 }
 
-fileprivate enum FoodEmojiShortcut {
+public enum FoodEmojiShortcut {
     case fast(emoji: String)
     case medium(emoji: String)
     case slow(emoji: String)
     case other
     
-    var emoji: String {
+    public var emoji: String {
         switch self {
         case .fast(emoji: let emoji):
             return emoji
@@ -126,7 +126,7 @@ fileprivate enum FoodEmojiShortcut {
         }
     }
     
-    static let all: [FoodEmojiShortcut] = [
+    public static let all: [FoodEmojiShortcut] = [
         .fast(emoji: "🍭"),
         .medium(emoji: "🌮"),
         .slow(emoji: "🍕"),

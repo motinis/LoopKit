@@ -529,6 +529,35 @@ class RecommendTempBasalTests: XCTestCase {
         XCTAssertEqual(0, dose!.unitsPerHour)
         XCTAssertEqual(TimeInterval(minutes: 30), dose!.duration)
     }
+    
+    func testStartHighEndLowBasalLock() {
+        let glucose = loadGlucoseValueFixture("recommend_temp_basal_start_high_end_low")
+
+        // Cancel existing dose
+        let lastTempBasal = DoseEntry(
+            type: .tempBasal,
+            startDate: glucose.first!.startDate.addingTimeInterval(TimeInterval(minutes: -21)),
+            endDate: glucose.first!.startDate.addingTimeInterval(TimeInterval(minutes: 9)),
+            value: 1.0,
+            unit: .unitsPerHour
+        )
+        
+        let dose = glucose.recommendedTempBasal(
+            to: glucoseTargetRange,
+            at: glucose.first!.startDate,
+            suspendThreshold: suspendThreshold.quantity,
+            sensitivity: insulinSensitivitySchedule,
+            model: walshInsulinModel,
+            basalRates: basalRateSchedule,
+            maxBasalRate: maxBasalRate,
+            lastTempBasal: lastTempBasal,
+            basalLockThreshold: HKQuantity(unit: .milligramsPerDeciliter, doubleValue: glucose.first!.quantity.doubleValue(for: .milligramsPerDeciliter) - 1)
+        )
+
+        // recommendation should be to cancel (resulting in scheduled basal rate)
+        XCTAssertEqual(0, dose!.unitsPerHour)
+        XCTAssertEqual(TimeInterval(minutes: 0), dose!.duration)
+    }
 
     func testStartHighEndLowAutomaticBolus() {
         let glucose = loadGlucoseValueFixture("recommend_temp_basal_start_high_end_low")

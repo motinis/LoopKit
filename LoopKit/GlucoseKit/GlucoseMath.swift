@@ -15,6 +15,65 @@ public struct GlucoseMath {
     public static let defaultDelta: TimeInterval = .minutes(5)
 }
 
+
+extension Collection where Element: SampleValue, Index == Int {
+    
+    public func interpolateValue(at date: Date, unit: HKUnit) -> Double? {
+        return interpolateValues(start: date, end: date, unit: unit).1
+    }
+    
+    public func interpolateValues(startIndex: Int? = nil, start: Date, end: Date, unit: HKUnit) -> (Int, Double?, Double?) {
+        let startIndex = startIndex ?? self.startIndex
+        
+        guard startIndex >= self.startIndex, startIndex < self.endIndex, self[startIndex].startDate <= end, self[self.endIndex - 1].startDate >= start else {
+            return (startIndex, nil, nil)
+        }
+                
+        var precedingStartElement = self[startIndex]
+        var precedingEndElement = precedingStartElement
+        var startResult: Double?
+        var endResult: Double?
+
+        var index = startIndex        
+
+        for idx in indices[startIndex..<self.endIndex] {
+            let element = self[idx]
+            if element.startDate < start {
+                precedingStartElement = element
+            }
+            if element.startDate < end {
+                precedingEndElement = element
+            }
+            
+            if startResult == nil && element.startDate >= start {
+                startResult = Self.interpolate(first: precedingStartElement, second: element, at: start, unit: unit)
+            }
+            if endResult == nil && element.startDate >= end {
+                endResult = Self.interpolate(first: precedingEndElement, second: element, at: end, unit: unit)
+                break
+            }
+
+            index = idx
+        }
+             
+        return (index, startResult, endResult)
+    }
+    
+    // interpolate the two values; note if they have the same date the value returned will be the first
+    public static func interpolate(first: SampleValue, second: SampleValue, at date: Date, unit: HKUnit) -> Double {
+        let firstValue = first.quantity.doubleValue(for: unit)
+        let secondValue = second.quantity.doubleValue(for: unit)
+        
+        guard firstValue != secondValue, first.startDate != second.startDate, date != first.startDate else {
+            return firstValue
+        }
+        
+        return firstValue + ((secondValue - firstValue) * (date.timeIntervalSince(first.startDate) / second.startDate.timeIntervalSince(first.startDate)))
+    }
+
+    
+}
+
 fileprivate extension Collection where Element == (x: Double, y: Double) {
     /**
      Calculates slope and intercept using linear regression
@@ -80,14 +139,14 @@ extension BidirectionalCollection where Element: GlucoseSampleValue, Index == In
     ///   - duration: The duration of the effects
     ///   - delta: The time differential for the returned values
     ///   - velocityMaximum: The limit on how fast the momentum effect can be. Defaults to 4 mg/dL/min based on physiological rates, if nil passed.
+    ///   - velocityTransform: The transform to apply to the velocity before enforcing velocityMaximum
     /// - Returns: An array of glucose effects
     public func linearMomentumEffect(
         duration: TimeInterval = GlucoseMath.momentumDuration,
         delta: TimeInterval = GlucoseMath.defaultDelta,
-        velocityMaximum: HKQuantity? = nil
+        velocityMaximum: HKQuantity? = nil,
+        velocityTransform: ((HKQuantity) -> HKQuantity)? = nil
     ) -> [GlucoseEffect] {
-
-        let velocityMax = velocityMaximum ?? HKQuantity(unit: HKUnit.milligramsPerDeciliter.unitDivided(by: .minute()), doubleValue: 4.0)
 
         guard
             self.count > 2,  // Linear regression isn't much use without 3 or more entries.
@@ -101,6 +160,7 @@ extension BidirectionalCollection where Element: GlucoseSampleValue, Index == In
 
         /// Choose a unit to use during raw value calculation
         let unit = HKUnit.milligramsPerDeciliter
+        let unitPerSecond = unit.unitDivided(by: .second())
 
         let (slope: slope, intercept: _) = self.map { (
             x: $0.startDate.timeIntervalSince(firstSample.startDate),
@@ -111,7 +171,14 @@ extension BidirectionalCollection where Element: GlucoseSampleValue, Index == In
             return []
         }
 
-        let limitedSlope = Swift.min(slope, velocityMax.doubleValue(for: unit.unitDivided(by: .second())))
+        var effectiveSlope = slope
+        if let velocityTransform = velocityTransform {
+            effectiveSlope = velocityTransform(HKQuantity(unit: unitPerSecond, doubleValue: slope)).doubleValue(for: unitPerSecond)
+        }
+        
+        let velocityMax = velocityMaximum ?? HKQuantity(unit: HKUnit.milligramsPerDeciliter.unitDivided(by: .minute()), doubleValue: 4.0)
+        let limitedSlope = Swift.min(effectiveSlope, velocityMax.doubleValue(for: unitPerSecond))
+
         
         var date = startDate
         var values = [GlucoseEffect]()
@@ -196,23 +263,12 @@ extension Collection where Element: GlucoseSampleValue, Index == Int {
                 break
             }
 
-            var startEffect: GlucoseEffect?
-            var endEffect: GlucoseEffect?
+            let (nextEffectIndex, startEffectValue, endEffectValue) = effects[effectIndex..<effects.count].interpolateValues(start: startGlucose.startDate, end: endGlucose.startDate, unit: mgdL)
+            
+            effectIndex = nextEffectIndex
+                        
 
-            for effect in effects[effectIndex..<effects.count] {
-                if startEffect == nil && effect.startDate >= startGlucose.startDate {
-                    startEffect = effect
-                } else if endEffect == nil && effect.startDate >= endGlucose.startDate {
-                    endEffect = effect
-                    break
-                }
-
-                effectIndex += 1
-            }
-
-            guard let startEffectValue = startEffect?.quantity.doubleValue(for: mgdL),
-                let endEffectValue = endEffect?.quantity.doubleValue(for: mgdL)
-            else {
+            guard let startEffectValue = startEffectValue, let endEffectValue = endEffectValue else {
                 break
             }
 

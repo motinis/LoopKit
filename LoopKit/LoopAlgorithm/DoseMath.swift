@@ -94,13 +94,15 @@ extension InsulinCorrection {
         volumeRounder: ((Double) -> Double)?
     ) -> ManualBolusRecommendation {
         var units = self.units - pendingInsulin
+        let excess = units - maxBolus
         units = Swift.min(maxBolus, Swift.max(0, units))
         units = volumeRounder?(units) ?? units
 
         return ManualBolusRecommendation(
             amount: units,
             pendingInsulin: pendingInsulin,
-            notice: bolusRecommendationNotice
+            notice: bolusRecommendationNotice,
+            missingAmount: excess > 0 ? excess : nil
         )
     }
 
@@ -225,22 +227,25 @@ extension Collection where Element: GlucoseValue {
     ///   - suspendThreshold: The glucose value below which only suspension is returned
     ///   - sensitivity: The insulin sensitivity at the time of delivery
     ///   - model: The insulin effect model
+    ///   - sleepSchedule: When insulin absorption should be slowed down
     /// - Returns: A correction value in units, or nil if no correction needed
     private func insulinCorrection(
         to correctionRange: GlucoseRangeSchedule,
         at date: Date,
         suspendThreshold: HKQuantity,
         sensitivity: HKQuantity,
-        model: InsulinModel
+        model: InsulinModel,
+        sleepSchedule: SleepSchedule?
     ) -> InsulinCorrection? {
-        let effectDuration = model.effectDuration
+        let effectDuration = model.effectDuration(at: date, sleepSchedule: sleepSchedule)
         let timeline = [AbsoluteScheduleValue(startDate: date, endDate: date.addingTimeInterval(effectDuration), value: sensitivity)]
         return insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold,
             insulinSensitivityTimeline: timeline,
-            model: model)
+            model: model,
+            sleepSchedule: sleepSchedule)
     }
 
     /// For a collection of glucose prediction, determine the least amount of insulin delivered at
@@ -252,13 +257,15 @@ extension Collection where Element: GlucoseValue {
     ///   - suspendThreshold: The glucose value below which only suspension is returned
     ///   - insulinSensitivityTimeline: The timeline of expected insulin sensitivity over the period of dose absorption
     ///   - model: The insulin effect model
+    ///   - sleepSchedule: When insulin absorption should be slowed down
     /// - Returns: A correction value in units, or nil if no correction needed
     private func insulinCorrection(
         to correctionRange: GlucoseRangeSchedule,
         at date: Date,
         suspendThreshold: HKQuantity,
         insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
-        model: InsulinModel
+        model: InsulinModel,
+        sleepSchedule: SleepSchedule?
     ) -> InsulinCorrection? {
         var minGlucose: GlucoseValue?
         var eventualGlucose: GlucoseValue?
@@ -267,7 +274,7 @@ extension Collection where Element: GlucoseValue {
         var effectedSensitivityAtMinGlucose: Double?
 
         // Only consider predictions within the model's effect duration
-        let validDateRange = DateInterval(start: date, duration: model.effectDuration)
+        let validDateRange = DateInterval(start: date, duration: model.effectDuration(at: date, sleepSchedule: sleepSchedule))
 
         let unit = correctionRange.unit
         let suspendThresholdValue = suspendThreshold.doubleValue(for: unit)
@@ -304,7 +311,7 @@ extension Collection where Element: GlucoseValue {
             let effectedSensitivity = isfSegments.reduce(0) { partialResult, segment in
                 let start = Swift.max(date, segment.startDate).timeIntervalSince(date)
                 let end = Swift.min(prediction.startDate, segment.endDate).timeIntervalSince(date)
-                let percentEffected = model.percentEffectRemaining(at: start) - model.percentEffectRemaining(at: end)
+                let percentEffected = model.percentEffectRemaining(doseDate: date, at: start, sleepSchedule: sleepSchedule) - model.percentEffectRemaining(doseDate: date, at: end, sleepSchedule: sleepSchedule)
                 return percentEffected * segment.value.doubleValue(for: unit)
             }
 
@@ -370,6 +377,28 @@ extension Collection where Element: GlucoseValue {
         }
     }
 
+    fileprivate func enforceBasalLock(_ basalLockThreshold: HKQuantity?, _ scheduledBasalRate: Double, _ temp: TempBasalRecommendation?, _ lastTempBasal: DoseEntry?) -> TempBasalRecommendation? {
+        
+        guard let basalLockThreshold = basalLockThreshold, self[0 as! Self.Index].quantity > basalLockThreshold else {
+            return temp
+        }
+        
+        var basalLockOn = false
+        
+        if let temp = temp {
+            basalLockOn = temp.unitsPerHour < scheduledBasalRate
+        } else if let lastTempBasal = lastTempBasal {
+            basalLockOn = lastTempBasal.unitsPerHour < scheduledBasalRate
+        }
+
+        guard basalLockOn else {
+            return temp
+        }
+        
+        print("####### Temp Basal Lock On #########")
+        return TempBasalRecommendation(unitsPerHour: scheduledBasalRate, duration: 1800)
+    }
+    
     /// Recommends a temporary basal rate to conform a glucose prediction timeline to a correction range
     ///
     /// Returns nil if the normal scheduled basal, or active temporary basal, is sufficient.
@@ -402,14 +431,17 @@ extension Collection where Element: GlucoseValue {
         rateRounder: ((Double) -> Double)? = nil,
         isBasalRateScheduleOverrideActive: Bool = false,
         duration: TimeInterval = TimeInterval(30 * 60),
-        continuationInterval: TimeInterval = TimeInterval(60 * 11)
+        continuationInterval: TimeInterval = TimeInterval(60 * 11),
+        basalLockThreshold: HKQuantity? = nil,
+        sleepSchedule: SleepSchedule? = nil
     ) -> TempBasalRecommendation? {
         let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
             sensitivity: sensitivity.quantity(at: date),
-            model: model
+            model: model,
+            sleepSchedule: sleepSchedule
         )
 
         let scheduledBasalRate = basalRates.value(at: date)
@@ -427,12 +459,14 @@ extension Collection where Element: GlucoseValue {
             maxBasalRate = Swift.min(maxThirtyMinuteRateToKeepIOBBelowLimit, maxBasalRate)
         }
 
-        let temp = correction?.asTempBasal(
+        var temp = correction?.asTempBasal(
             scheduledBasalRate: scheduledBasalRate,
             maxBasalRate: maxBasalRate,
             duration: duration,
             rateRounder: rateRounder
         )
+
+        temp = enforceBasalLock(basalLockThreshold, scheduledBasalRate, temp, lastTempBasal)
 
         return temp?.ifNecessary(
             at: date,
@@ -475,14 +509,17 @@ extension Collection where Element: GlucoseValue {
         rateRounder: ((Double) -> Double)? = nil,
         isBasalRateScheduleOverrideActive: Bool = false,
         duration: TimeInterval = TimeInterval(30 * 60),
-        continuationInterval: TimeInterval = TimeInterval(11 * 60)
+        continuationInterval: TimeInterval = TimeInterval(11 * 60),
+        basalLockThreshold: HKQuantity? = nil,
+        sleepSchedule: SleepSchedule? = nil
     ) -> AutomaticDoseRecommendation? {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
             sensitivity: sensitivity.quantity(at: date),
-            model: model
+            model: model,
+            sleepSchedule: sleepSchedule
         ) else {
             return nil
         }
@@ -517,6 +554,8 @@ extension Collection where Element: GlucoseValue {
             volumeRounder: volumeRounder
         )
 
+        temp = enforceBasalLock(basalLockThreshold, scheduledBasalRate, temp, lastTempBasal)
+
         if temp != nil || bolusUnits > 0 {
             return AutomaticDoseRecommendation(basalAdjustment: temp, bolusUnits: bolusUnits)
         }
@@ -545,14 +584,16 @@ extension Collection where Element: GlucoseValue {
         model: InsulinModel,
         pendingInsulin: Double,
         maxBolus: Double,
-        volumeRounder: ((Double) -> Double)? = nil
+        volumeRounder: ((Double) -> Double)? = nil,
+        sleepSchedule: SleepSchedule? = nil
     ) -> ManualBolusRecommendation {
         guard let correction = self.insulinCorrection(
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
             sensitivity: sensitivity.quantity(at: date),
-            model: model
+            model: model,
+            sleepSchedule: sleepSchedule
         ) else {
             return ManualBolusRecommendation(amount: 0, pendingInsulin: pendingInsulin)
         }

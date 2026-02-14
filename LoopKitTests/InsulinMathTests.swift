@@ -280,6 +280,112 @@ class InsulinMathTests: XCTestCase {
             XCTAssertEqual(expected.value, calculated.value, accuracy: 0.5)
         }
     }
+    
+    fileprivate func verifyIOBWithSleepSchedule(_ dose: DoseEntry, _ schedule: SleepSchedule, _ scheduleEffectDuration: TimeInterval, _ timeFunc: (Double) -> Double, _ insulinModel: InsulinModel, _ doseDate: Date) {
+        
+        guard dose.endDate == dose.startDate else {
+            // if a dose is e.g. a tempBasal then the internal "continuous" delivery calcuation is done segment by segment
+            // and would be difficult to verify since the calculation would have to be repeated externally exactly!
+            return
+        }
+        
+        XCTAssertEqual(dose.startDate, dose.startDate.dateFlooredToTimeInterval(.minutes(5)))
+
+        let duration = insulinModel.effectDuration
+        let step = insulinModel.effectDuration == scheduleEffectDuration ? 1 : 5
+        
+        for offset in stride(from: 0, to: Int(scheduleEffectDuration.minutes.rounded(.up)), by: step) {
+            let adjustedTime: Double = Double(offset)
+            let time = timeFunc(adjustedTime)
+            
+            guard abs(time.rounded(.toNearestOrEven) - time) < 0.01, Int(time.rounded(.toNearestOrEven)) % step == 0 else {
+                continue
+            }
+            
+            let noSleepIOB = [dose].insulinOnBoard(insulinModelProvider: insulinModelSettings, longestEffectDuration: duration, from: doseDate.addingTimeInterval(.minutes(time)), to: doseDate.addingTimeInterval(.minutes(time)))
+            
+            let sleepIOB = [dose].insulinOnBoard(insulinModelProvider: insulinModelSettings, longestEffectDuration: scheduleEffectDuration, sleepSchedule: schedule, from: doseDate.addingTimeInterval(.minutes(adjustedTime)), to: doseDate.addingTimeInterval(.minutes(adjustedTime)))
+            
+            XCTAssertEqual(noSleepIOB.count, sleepIOB.count, "Failed for schedule \(schedule) offset \(offset)")
+            
+            for i in 0...sleepIOB.count-1 {
+                XCTAssertEqual(noSleepIOB[i].value, sleepIOB[i].value, accuracy: 0.001, "Failed for schedule \(schedule) at offset \(offset) with i=\(i)")
+            }
+        }
+    }
+
+    func testIOBFromDosesWithSleepSchedule() {
+        let input = loadDoseFixture("normalized_doses", insulinType: .novolog)
+       
+        // IOB effects are always calculated on 5 minute boundaries. Thus, we can only check for equality
+        // when both adjustedTime and time are both % 5 as is dose.startDate
+        
+        var timeFunc: (Double) -> Double
+        var schedule: SleepSchedule
+        var scheduleEffectDuration: TimeInterval
+        
+        let insulinModel = insulinModelSettings.model
+        let delay = insulinModel.delay.minutes
+        
+        for rawDose in input {
+            guard rawDose.endDate == rawDose.startDate else {
+                // if a dose is e.g. a tempBasal then the internal "continuous" delivery calcuation is done segment by segment
+                // and would be difficult to verify since the calculation would have to be repeated externally exactly!
+                continue
+            }
+
+            let doseDate = rawDose.startDate.dateFlooredToTimeInterval(.minutes(5))
+            let dose = DoseEntry(type: rawDose.type, startDate: doseDate, value: rawDose.value, unit: rawDose.unit)
+            
+            schedule = SleepSchedule(start: doseDate, duration: .hours(24), slowdownFactor: 0.3)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.7 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            for _ in 1...24 {
+                schedule = SleepSchedule(start: schedule.start + .hours(1), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
+                verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            }
+            schedule = SleepSchedule(start: doseDate, duration: .hours(24), slowdownFactor: 0.4)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.6 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            for _ in 1...24 {
+                schedule = SleepSchedule(start: schedule.start + .hours(1), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
+                verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            }
+
+            schedule = SleepSchedule(start: doseDate, duration: .minutes(60), slowdownFactor: 0.3)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = {
+                $0 < delay ? $0 :
+                    $0 < 60 ? delay + ($0 - delay) * 0.7 :
+                        $0 - (60 - delay) * 0.3 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            schedule = SleepSchedule(start: schedule.start + .hours(-24), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+         
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .minutes(120), slowdownFactor: 0.2)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = {
+                $0 < 60 ? $0 :
+                    $0 < 180 ? $0 - ($0 - 60) * 0.2 :
+                    $0 - 120 * 0.2 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            schedule = SleepSchedule(start: schedule.start + .hours(48), duration: schedule.duration, slowdownFactor: schedule.slowdownFactor)
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .hours(12), slowdownFactor: 0.5)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.5 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+            
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(-60)), duration: .minutes(60 + delay), slowdownFactor: 0.3)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 }
+            verifyIOBWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, doseDate)
+        }
+    }
+
 
     func testIOBFromNoDoses() {
         let input: [DoseEntry] = []
@@ -304,6 +410,80 @@ class InsulinMathTests: XCTestCase {
         // Test for child curve
         XCTAssertEqual(0.6002510111374046, childModel.percentEffectRemaining(at: .minutes(82)), accuracy: 0.001)
 
+    }
+    
+    func testIsAsleep() {
+        // asleep from 00:00 - 01:00 local time
+        let sleepSchedule = SleepSchedule(start: .hours(0), duration: .minutes(60), slowdownFactor: 0.3)
+        
+        let midnightTodayInUTC = Date().dateFlooredToTimeInterval(.hours(24)).addingTimeInterval((Double)(-TimeZone.current.secondsFromGMT()))
+        
+        for days in -1...1 {
+            let date = midnightTodayInUTC.addingTimeInterval(.hours((Double(days) * 24.0)))
+            XCTAssert(sleepSchedule.isAsleep(at: date))
+            XCTAssert(sleepSchedule.isAsleep(at: date.addingTimeInterval(sleepSchedule.duration)))
+            XCTAssertFalse(sleepSchedule.isAsleep(at: date.addingTimeInterval(-1)))
+            XCTAssertFalse(sleepSchedule.isAsleep(at: date.addingTimeInterval(60 * 60 + 1)))
+
+        }
+    }
+    
+    fileprivate func verifyInsulinModelForSleepSchedule(_ schedule: SleepSchedule, _ scheduleEffectDuration: TimeInterval, _ timeFunc: (Double) -> Double, _ insulinModel: InsulinModel, _ now: Date) {
+        
+        for offset in 0...Int(scheduleEffectDuration.minutes.rounded(.up)) {
+            let adjustedTime: Double = Double(offset)
+            let time = timeFunc(adjustedTime)
+            let noSleepValue = insulinModel.percentEffectRemaining(at: .minutes(time))
+            let value = insulinModel.percentEffectRemaining(doseDate: now, at: .minutes(adjustedTime), sleepSchedule: schedule)
+            
+            XCTAssertEqual(noSleepValue, value, accuracy: 0.001, "Failed for schedule \(schedule) at offset \(offset)")
+        }
+    }
+    
+    func testExponentialModelWithSleepSchedules() {
+        let delay = 10.0
+        let insulinModel = ExponentialInsulinModel(actionDuration: TimeInterval(minutes: 360), peakActivityTime: TimeInterval(minutes: 75), delay: TimeInterval(minutes: delay))
+        
+        let duration = insulinModel.effectDuration
+        let now = Date()
+
+        var schedule: SleepSchedule
+        var scheduleEffectDuration: TimeInterval
+        var timeFunc: (Double) -> Double
+        
+        schedule = SleepSchedule(start: now, duration: .hours(24), slowdownFactor: SleepSchedule.maxSlowdownFactor)
+        scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
+        timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * (1 - SleepSchedule.maxSlowdownFactor) }
+        XCTAssertEqual(insulinModel.delay + (duration - insulinModel.delay) / (1 - SleepSchedule.maxSlowdownFactor), insulinModel.maxPossibleEffectDuration, accuracy: 0.001)
+        XCTAssertEqual(insulinModel.effectDuration(at: now, sleepSchedule: schedule), insulinModel.maxPossibleEffectDuration, accuracy: 0.001)
+        verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
+
+        
+        schedule = SleepSchedule(start: now, duration: .minutes(60), slowdownFactor: 0.3)
+        scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
+        timeFunc = {
+            $0 < delay ? $0 :
+                $0 < 60 ? delay + ($0 - delay) * 0.7 :
+                    $0 - (60 - delay) * 0.3 }
+        XCTAssertEqual(duration + (schedule.duration - insulinModel.delay) * 0.3, scheduleEffectDuration, accuracy: 0.001)
+        verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
+        
+        
+        schedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .minutes(120), slowdownFactor: 0.2)
+        scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
+        timeFunc = {
+            $0 < 60 ? $0 :
+                $0 < 180 ? $0 - ($0 - 60) * 0.2 :
+                $0 - 120 * 0.2 }
+        XCTAssertEqual(duration + schedule.duration * 0.2, scheduleEffectDuration, accuracy: 0.001)
+        verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
+        
+        
+        schedule = SleepSchedule(start: now.addingTimeInterval(.minutes(60)), duration: .hours(12), slowdownFactor: 0.4)
+        scheduleEffectDuration = insulinModel.effectDuration(at: now, sleepSchedule: schedule)
+        timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.4 }
+        XCTAssertEqual(duration + (duration - .minutes(60)) * 0.4 / 0.6, scheduleEffectDuration, accuracy: 0.001)
+        verifyInsulinModelForSleepSchedule(schedule, scheduleEffectDuration, timeFunc, insulinModel, now)
     }
     
     func testIOBFromDosesExponential() {
@@ -337,7 +517,7 @@ class InsulinMathTests: XCTestCase {
             XCTAssertEqual(expected.value, calculated.value, accuracy: Double(Float.ulpOfOne))
         }
     }
-
+    
 
     func testIOBFromBolus() {
         for hours in [2, 3, 4, 5, 5.2, 6, 7] as [Double] {
@@ -355,6 +535,8 @@ class InsulinMathTests: XCTestCase {
                 XCTAssertEqual(expected.startDate, calculated.startDate)
                 XCTAssertEqual(expected.value, calculated.value, accuracy: Double(Float.ulpOfOne))
             }
+            
+            
         }
     }
     
@@ -609,6 +791,101 @@ class InsulinMathTests: XCTestCase {
         for (expected, calculated) in zip(output, effects) {
             XCTAssertEqual(expected.startDate, calculated.startDate)
             XCTAssertEqual(expected.quantity.doubleValue(for: HKUnit.milligramsPerDeciliter), calculated.quantity.doubleValue(for: HKUnit.milligramsPerDeciliter), accuracy: 3.0)
+        }
+    }
+    
+    fileprivate func verifyGlucoseEffectWithSleepSchedule(_ dose: DoseEntry, _ schedule: SleepSchedule, _ scheduleEffectDuration: TimeInterval, _ timeFunc: (Double) -> Double, _ insulinModel: InsulinModel, _ insulinSensitivitySchedule: InsulinSensitivitySchedule) {
+        
+        guard dose.endDate == dose.startDate else {
+            // if a dose is e.g. a tempBasal then the internal "continuous" delivery calcuation is done segment by segment
+            // and would be difficult to verify since the calculation would have to be repeated externally exactly!
+            return
+        }
+        
+        XCTAssertEqual(dose.startDate, dose.startDate.dateFlooredToTimeInterval(.minutes(5)))
+        
+        let date = dose.startDate
+        let modelProvider = StaticInsulinModelProvider(insulinModel)
+        let duration = insulinModel.effectDuration
+        let step = insulinModel.effectDuration == scheduleEffectDuration ? 1 : 5
+        
+        let unit: HKUnit = .milligramsPerDeciliter
+        
+        for offset in stride(from: 0, to: Int(scheduleEffectDuration.minutes.rounded(.up)), by: step) {
+            let adjustedTime: Double = Double(offset)
+            let time = timeFunc(adjustedTime)
+            
+            guard abs(time.rounded(.toNearestOrEven) - time) < 0.01, Int(time.rounded(.toNearestOrEven)) % step == 0 else {
+                continue
+            }
+            
+            let noSleepEffects = [dose].glucoseEffects(insulinModelProvider: modelProvider, longestEffectDuration: duration, insulinSensitivity: insulinSensitivitySchedule, from: date.addingTimeInterval(.minutes(time)), to: date.addingTimeInterval(.minutes(time)))
+            
+            let sleepEffects = [dose].glucoseEffects(insulinModelProvider: modelProvider, longestEffectDuration: scheduleEffectDuration, insulinSensitivity: insulinSensitivitySchedule, sleepSchedule: schedule, from: date.addingTimeInterval(.minutes(adjustedTime)), to: date.addingTimeInterval(.minutes(adjustedTime)))
+
+            
+            XCTAssertEqual(noSleepEffects.count, sleepEffects.count, "Failed for schedule \(schedule) offset \(offset)")
+            
+            for i in 0...sleepEffects.count-1 {
+                XCTAssertEqual(noSleepEffects[i].quantity.doubleValue(for: unit), sleepEffects[i].quantity.doubleValue(for: unit), accuracy: 0.001, "Failed for schedule \(schedule) at offset \(offset) with i=\(i)")
+            }
+        }
+    }
+    
+    func testGlucoseEffectFromHistoryWithSleepSchedule() {
+        let input = loadDoseFixture("normalized_doses")
+        let insulinSensitivitySchedule = self.insulinSensitivitySchedule
+
+        // GlucoseEffects are always calculated on 5 minute boundaries. Thus, we can only check for equality
+        // when both adjustedTime and time are both % 5 as is dose.startDate itself
+        
+        var timeFunc: (Double) -> Double
+        var schedule: SleepSchedule
+        var scheduleEffectDuration: TimeInterval
+        
+        let insulinModel = insulinModelSettings.model
+        let delay = insulinModel.delay.minutes
+        
+        for rawDose in input {
+            guard rawDose.endDate == rawDose.startDate else {
+                // if a dose is e.g. a tempBasal then the internal "continuous" delivery calcuation is done segment by segment
+                // and would be difficult to verify since the calculation would have to be repeated externally exactly!
+                continue
+            }
+
+            let doseDate = rawDose.startDate.dateFlooredToTimeInterval(.minutes(5))
+            let dose = DoseEntry(type: rawDose.type, startDate: doseDate, value: rawDose.value, unit: rawDose.unit)
+            
+            schedule = SleepSchedule(start: doseDate, duration: .hours(24), slowdownFactor: 0.1)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 < delay ? $0 : delay + ($0 - delay) * 0.9 }
+            verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
+            
+            schedule = SleepSchedule(start: doseDate, duration: .minutes(60), slowdownFactor: 0.15)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = {
+                $0 < delay ? $0 :
+                $0 < 60 ? delay + ($0 - delay) * 0.85 :
+                $0 - (60 - delay) * 0.15 }
+            verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
+
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .minutes(120), slowdownFactor: 0.25)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = {
+                $0 < 60 ? $0 :
+                $0 < 180 ? $0 - ($0 - 60) * 0.25 :
+                $0 - 120 * 0.25 }
+            verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
+
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(60)), duration: .hours(12), slowdownFactor: 0.35)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 < 60 ? $0 : $0 - ($0 - 60) * 0.35 }
+            verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
+
+            schedule = SleepSchedule(start: doseDate.addingTimeInterval(.minutes(-60)), duration: .minutes(60 + delay), slowdownFactor: 0.45)
+            scheduleEffectDuration = insulinModel.effectDuration(at: doseDate, sleepSchedule: schedule)
+            timeFunc = { $0 }
+            verifyGlucoseEffectWithSleepSchedule(dose, schedule, scheduleEffectDuration, timeFunc, insulinModel, insulinSensitivitySchedule)
         }
     }
 
