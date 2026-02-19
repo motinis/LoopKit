@@ -210,6 +210,19 @@ extension Collection where Element: GlucoseSampleValue, Index == Int {
 
         return true
     }
+    
+    // interpolate the two values; note if they have the same date the value returned will be the first
+    private func interpolateMgdL(_ first: GlucoseEffect, _ second: GlucoseEffect, _ date: Date) -> Double {
+        let mgdL = HKUnit.milligramsPerDeciliter
+        let firstValue = first.quantity.doubleValue(for: mgdL)
+        let secondValue = second.quantity.doubleValue(for: mgdL)
+        
+        guard firstValue != secondValue, first.startDate != second.startDate, date != first.startDate else {
+            return firstValue
+        }
+        
+        return firstValue + ((secondValue - firstValue) * (date.timeIntervalSince(first.startDate) / second.startDate.timeIntervalSince(first.startDate)))
+    }
 
     /// Calculates a timeline of effect velocity (glucose/time) observed in glucose readings that counteract the specified effects.
     ///
@@ -231,7 +244,7 @@ extension Collection where Element: GlucoseSampleValue, Index == Int {
         guard var startGlucoseIdx else {
             return []
         }
-
+        
         var endGlucoseIdx = startGlucoseIdx + 1
 
         while endGlucoseIdx != self.endIndex {
