@@ -3,7 +3,7 @@
 //  LoopUI
 //
 //  Created by Nathaniel Hamming on 2020-09-08.
-//  Copyright © 2020 LoopKit Authors. All rights reserved.
+//  Copyright 2020 LoopKit Authors. All rights reserved.
 //
 
 import SwiftCharts
@@ -11,7 +11,7 @@ import UIKit
 
 extension ChartAxisValuesStaticGenerator {
     // This is the same as SwiftChart ChartAxisValuesStaticGenerator.generateAxisValuesWithChartPoints(...) with the exception that the `currentMultiple` is calculated linearly instead of quadratically
-    static func generateYAxisValuesUsingLinearSegmentStep(chartPoints: [ChartPoint],
+    public static func generateYAxisValuesUsingLinearSegmentStep(chartPoints: [ChartPoint],
                                                           minSegmentCount: Double,
                                                           maxSegmentCount: Double,
                                                           multiple: Double,
