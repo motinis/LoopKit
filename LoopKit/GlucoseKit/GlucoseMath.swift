@@ -19,44 +19,36 @@ public struct GlucoseMath {
 extension Collection where Element: SampleValue, Index == Int {
     
     public func interpolateValue(at date: Date, unit: HKUnit) -> Double? {
-        return interpolateValues(start: date, end: date, unit: unit).1
+        return interpolateValue(startIndex: nil, at: date, unit: unit).1
     }
     
-    public func interpolateValues(startIndex: Int? = nil, start: Date, end: Date, unit: HKUnit) -> (Int, Double?, Double?) {
+    public func interpolateValue(startIndex: Int? = nil, at date: Date, unit: HKUnit) -> (Int, Double?) {
         let startIndex = startIndex ?? self.startIndex
-        
-        guard startIndex >= self.startIndex, startIndex < self.endIndex, self[startIndex].startDate <= end, self[self.endIndex - 1].startDate >= start else {
-            return (startIndex, nil, nil)
-        }
-                
-        var precedingStartElement = self[startIndex]
-        var precedingEndElement = precedingStartElement
-        var startResult: Double?
-        var endResult: Double?
 
-        var index = startIndex        
+        guard self.startIndex <= startIndex, startIndex < self.endIndex,
+              self[startIndex].startDate <= date, date <= self[self.endIndex - 1].startDate
+        else {
+            return (startIndex, nil)
+        }
+
+        var precedingElement = self[startIndex]
+        var result: Double?
+
+        var index = startIndex
 
         for idx in indices[startIndex..<self.endIndex] {
             let element = self[idx]
-            if element.startDate < start {
-                precedingStartElement = element
-            }
-            if element.startDate < end {
-                precedingEndElement = element
-            }
-            
-            if startResult == nil && element.startDate >= start {
-                startResult = Self.interpolate(first: precedingStartElement, second: element, at: start, unit: unit)
-            }
-            if endResult == nil && element.startDate >= end {
-                endResult = Self.interpolate(first: precedingEndElement, second: element, at: end, unit: unit)
+            if element.startDate < date {
+                precedingElement = element
+            } else {
+                result = Self.interpolate(first: precedingElement, second: element, at: date, unit: unit)
                 break
             }
 
             index = idx
         }
-             
-        return (index, startResult, endResult)
+
+        return (index, result)
     }
     
     // interpolate the two values; note if they have the same date the value returned will be the first
@@ -263,10 +255,10 @@ extension Collection where Element: GlucoseSampleValue, Index == Int {
                 break
             }
 
-            let (nextEffectIndex, startEffectValue, endEffectValue) = effects[effectIndex..<effects.count].interpolateValues(start: startGlucose.startDate, end: endGlucose.startDate, unit: mgdL)
+            let (midEffectIndex, startEffectValue) = effects.interpolateValue(startIndex: effectIndex, at: startGlucose.startDate, unit: mgdL)
+            let (nextEffectIndex, endEffectValue) = effects.interpolateValue(startIndex: midEffectIndex, at: endGlucose.startDate, unit: mgdL)
             
-            effectIndex = nextEffectIndex
-                        
+            effectIndex = nextEffectIndex                        
 
             guard let startEffectValue = startEffectValue, let endEffectValue = endEffectValue else {
                 break

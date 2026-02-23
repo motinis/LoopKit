@@ -52,7 +52,7 @@ extension DoseEntry {
         }
     }
 
-    private func continuousDeliveryGlucoseEffect(at date: Date, model: InsulinModel, delta: TimeInterval, sleepSchedule: SleepSchedule?) -> Double {
+    private func continuousDeliveryInsulinUnitsEffect(at date: Date, model: InsulinModel, delta: TimeInterval, sleepSchedule: SleepSchedule?) -> Double {
         let doseDuration = endDate.timeIntervalSince(startDate)  // t1
         let time = date.timeIntervalSince(startDate)
         var value: Double = 0
@@ -77,7 +77,7 @@ extension DoseEntry {
         return value
     }
 
-    func glucoseEffect(at date: Date, model: InsulinModel, insulinSensitivity: Double, delta: TimeInterval, sleepSchedule: SleepSchedule?) -> Double {
+    func iobEffect(at date: Date, model: InsulinModel, delta: TimeInterval, sleepSchedule: SleepSchedule? = nil) -> Double {
         let time = date.timeIntervalSince(startDate)
 
         guard time >= 0 else {
@@ -86,13 +86,13 @@ extension DoseEntry {
 
         // Consider doses within the delta time window as momentary
         if endDate.timeIntervalSince(startDate) <= 1.05 * delta {
-            return netBasalUnits * -insulinSensitivity * (1.0 - model.percentEffectRemaining(doseDate: startDate, at: time, sleepSchedule: sleepSchedule))
+            return -netBasalUnits * (1.0 - model.percentEffectRemaining(doseDate: startDate, at: time, sleepSchedule: sleepSchedule))
         } else {
-            return netBasalUnits * -insulinSensitivity * continuousDeliveryGlucoseEffect(at: date, model: model, delta: delta, sleepSchedule: sleepSchedule)
+            return -netBasalUnits * continuousDeliveryInsulinUnitsEffect(at: date, model: model, delta: delta, sleepSchedule: sleepSchedule)
         }
     }
 
-    func glucoseEffect(during interval: DateInterval, model: InsulinModel, insulinSensitivity: Double, delta: TimeInterval, sleepSchedule: SleepSchedule? = nil) -> Double {
+    func iobEffect(during interval: DateInterval, model: InsulinModel, delta: TimeInterval, sleepSchedule: SleepSchedule? = nil) -> Double {
         let start = interval.start.timeIntervalSince(startDate)
         let end = interval.end.timeIntervalSince(startDate)
 
@@ -103,12 +103,11 @@ extension DoseEntry {
         // Consider doses within the delta time window as momentary
         if endDate.timeIntervalSince(startDate) <= 1.05 * delta {
             let effect = model.percentEffectRemaining(doseDate: startDate, at: start, sleepSchedule: sleepSchedule) - model.percentEffectRemaining(doseDate: startDate, at: end, sleepSchedule: sleepSchedule)
-            return netBasalUnits * -insulinSensitivity * effect
+            return -netBasalUnits * effect
         } else {
-            return netBasalUnits * -insulinSensitivity * continuousDeliveryGlucoseEffect(at: interval.end, model: model, delta: delta, sleepSchedule: sleepSchedule)
+            return -netBasalUnits * continuousDeliveryInsulinUnitsEffect(at: interval.end, model: model, delta: delta, sleepSchedule: sleepSchedule)
         }
     }
-
 
     public func trimmed(from start: Date? = nil, to end: Date? = nil, syncIdentifier: String? = nil) -> DoseEntry {
 
@@ -609,7 +608,7 @@ extension Collection where Element == DoseEntry {
         return values
     }
 
-    /// Calculates the timeline of glucose effects for a collection of doses. The ISF used for a given dose is based on the ISF in effect at the dose start time.
+    /// Calculates the timeline of glucose effects for a collection of doses.
     ///
     /// - Parameters:
     ///   - insulinModelProvider: A factory that can provide an insulin model given an insulin type
@@ -638,22 +637,34 @@ extension Collection where Element == DoseEntry {
         var date = start
         var values = [GlucoseEffect]()
         let unit = HKUnit.milligramsPerDeciliter
+        var prevDate = start.addingTimeInterval(-delta)
+        var prevIobEffect = 0.0
+        var glucoseEffectValue = 0.0
 
         repeat {
-            let value = reduce(0) { (value, dose) -> Double in
-                let isf = insulinSensitivity.quantity(at: dose.startDate).doubleValue(for: unit)
-                let doseEffect = dose.glucoseEffect(at: date, model: insulinModelProvider.model(for: dose.insulinType), insulinSensitivity: isf, delta: delta, sleepSchedule: sleepSchedule)
-                return value + doseEffect
-            }
+            let schedule = insulinSensitivity.quantitiesBetween(start: prevDate, end: date)
 
-            values.append(GlucoseEffect(startDate: date, quantity: HKQuantity(unit: unit, doubleValue: value)))
+            for scheduleValue in schedule {
+                let effectiveDate = Swift.min(date, scheduleValue.endDate)
+                let iobEffect = reduce(0) { (value, dose) -> Double in
+                    let doseEffect = dose.iobEffect(at: effectiveDate, model: insulinModelProvider.model(for: dose.insulinType), delta: delta, sleepSchedule: sleepSchedule)
+                    return value + doseEffect
+                }
+                let iobDelta = iobEffect - prevIobEffect
+                glucoseEffectValue += iobDelta * scheduleValue.value.doubleValue(for: unit)
+                prevIobEffect = iobEffect
+            }
+            
+            values.append(GlucoseEffect(startDate: date, quantity: HKQuantity(unit: unit, doubleValue: glucoseEffectValue)))
+            
+            prevDate = date
             date = date.addingTimeInterval(delta)
         } while date <= end
 
         return values
     }
 
-    /// Calculates the timeline of glucose effects for a collection of doses. The ISF used for a given dose is based on the ISF in effect at the dose start time.
+    /// Calculates the timeline of glucose effects for a collection of doses.
     ///
     /// - Parameters:
     ///   - insulinModelProvider: A factory that can provide an insulin model given an insulin type
@@ -685,132 +696,32 @@ extension Collection where Element == DoseEntry {
         var date = start
         var values = [GlucoseEffect]()
         let unit = HKUnit.milligramsPerDeciliter
+        var prevDate = start.addingTimeInterval(-delta)
+        var prevIobEffect = 0.0
+        var glucoseEffectValue = 0.0
 
         repeat {
-            let value = reduce(0) { (value, dose) -> Double in
-
-                guard let isfScheduleValue = insulinSensitivityHistory.closestPrior(to: dose.startDate), isfScheduleValue.endDate >= dose.startDate else {
-                    preconditionFailure("ISF History must cover dose startDates")
-                }
-                let isf = isfScheduleValue.value.doubleValue(for: unit)
-                let doseEffect = dose.glucoseEffect(at: date, model: insulinModelProvider.model(for: dose.insulinType), insulinSensitivity: isf, delta: delta, sleepSchedule: sleepSchedule)
-                return value + doseEffect
+            let schedule = insulinSensitivityHistory.filterDateRange(prevDate, date)
+            guard !schedule.isEmpty, schedule.first!.startDate <= prevDate, schedule.last!.endDate >= date else {
+                preconditionFailure("ISF History must cover data range: \(prevDate) - \(date)")
             }
-
-            values.append(GlucoseEffect(startDate: date, quantity: HKQuantity(unit: unit, doubleValue: value)))
+            
+            for scheduleValue in schedule {
+                let effectiveDate = Swift.min(date, scheduleValue.endDate)
+                let iobEffect = reduce(0) { (value, dose) -> Double in
+                    let doseEffect = dose.iobEffect(at: effectiveDate, model: insulinModelProvider.model(for: dose.insulinType), delta: delta, sleepSchedule: sleepSchedule)
+                    return value + doseEffect
+                }
+                let iobDelta = iobEffect - prevIobEffect
+                glucoseEffectValue += iobDelta * scheduleValue.value.doubleValue(for: unit)
+                prevIobEffect = iobEffect
+            }
+            
+            values.append(GlucoseEffect(startDate: date, quantity: HKQuantity(unit: unit, doubleValue: glucoseEffectValue)))
+            
+            prevDate = date
             date = date.addingTimeInterval(delta)
         } while date <= end
-
-        return values
-    }
-
-
-    /// Calculates the timeline of glucose effects for a collection of doses.  Effects for a specific dose will vary over the course
-    /// of that dose's absoption interval based on the timeline of insulin sensitivity.
-    ///
-    /// - Parameters:
-    ///   - insulinModelProvider: A factory that can provide an insulin model given an insulin type
-    ///   - longestEffectDuration: The longest duration that a dose could be active.
-    ///   - insulinSensitivityTimeline: A timeline of glucose effect per unit of insulin
-    ///   - start: The earliest date of effects to return
-    ///   - end: The latest date of effects to return
-    ///   - delta: The interval between returned effects
-    ///   - sleepSchedule: When insulin absorption is slowed down
-    /// - Returns: An array of glucose effects for the duration of the doses
-    public func glucoseEffects(
-        insulinModelProvider: InsulinModelProvider,
-        longestEffectDuration: TimeInterval,
-        insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
-        from start: Date? = nil,
-        to end: Date? = nil,
-        delta: TimeInterval = TimeInterval(/* minutes: */60 * 5),
-        sleepSchedule: SleepSchedule?
-    ) -> [GlucoseEffect] {
-        guard let (start, end) = LoopMath.simulationDateRangeForSamples(self.filter({ entry in
-            entry.netBasalUnits != 0
-        }), from: start, to: end, duration: longestEffectDuration, delta: delta) else {
-            return []
-        }
-
-        var lastDate = start
-        var date = start
-        var effectSum: Double = 0
-        var values = [GlucoseEffect]()
-        let unit = HKUnit.milligramsPerDeciliter
-
-        repeat {
-            // Sum effects over doses
-            let value = reduce(0) { (value, dose) -> Double in
-                guard date != lastDate else {
-                    return 0
-                }
-
-                let model = insulinModelProvider.model(for: dose.insulinType)
-
-                // Sum effects over pertinent ISF timeline segments
-                let isfSegments = insulinSensitivityTimeline.filterDateRange(lastDate, date)
-                return value + isfSegments.reduce(0, { partialResult, segment in
-                    let start = Swift.max(lastDate, segment.startDate)
-                    let end = Swift.min(date, segment.endDate)
-                    return partialResult + dose.glucoseEffect(during: DateInterval(start: start, end: end), model: model, insulinSensitivity: segment.value.doubleValue(for: unit), delta: delta, sleepSchedule: sleepSchedule)
-                })
-            }
-
-            effectSum += value
-            values.append(GlucoseEffect(startDate: date, quantity: HKQuantity(unit: unit, doubleValue: effectSum)))
-            lastDate = date
-            date = date.addingTimeInterval(delta)
-        } while date <= end
-
-        return values
-    }
-
-    /// Calculates the timeline of glucose effects for a collection of doses at specified points in time. Effects for a specific dose will vary over the course
-    /// of that dose's absoption interval based on the timeline of insulin sensitivity.
-    ///
-    /// - Parameters:
-    ///   - insulinModelProvider: A factory that can provide an insulin model given an insulin type
-    ///   - longestEffectDuration: The longest duration that a dose could be active.
-    ///   - insulinSensitivityTimeline: A timeline of glucose effect per unit of insulin
-    ///   - effectDates: The dates at which to calculate glucose effects
-    ///   - delta: The interval below which to consider doses as momentary
-    ///   - sleepSchedule: when insulin absorption is slowed down
-    /// - Returns: An array of glucose effects for the duration of the doses
-    public func glucoseEffects(
-        insulinModelProvider: InsulinModelProvider,
-        longestEffectDuration: TimeInterval,
-        insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
-        effectDates: [Date],
-        delta: TimeInterval = TimeInterval(/* minutes: */60 * 5),
-        sleepSchedule: SleepSchedule?
-    ) -> [GlucoseEffect] {
-
-        var lastDate = effectDates.first!
-        var values = [GlucoseEffect]()
-        let unit = HKUnit.milligramsPerDeciliter
-
-        for date in effectDates {
-            // Sum effects over doses
-            let value = reduce(0) { (value, dose) -> Double in
-                guard date != lastDate else {
-                    return 0
-                }
-
-                let model = insulinModelProvider.model(for: dose.insulinType)
-
-                // Sum effects over pertinent ISF timeline segments
-                let isfSegments = insulinSensitivityTimeline.filterDateRange(lastDate, date)
-                return value + isfSegments.reduce(0, { partialResult, segment in
-                    let start = Swift.max(lastDate, segment.startDate)
-                    let end = Swift.min(date, segment.endDate)
-                    let effect = dose.glucoseEffect(during: DateInterval(start: start, end: end), model: model, insulinSensitivity: segment.value.doubleValue(for: unit), delta: delta, sleepSchedule: sleepSchedule)
-                    return partialResult + effect
-                })
-            }
-
-            values.append(GlucoseEffect(startDate: date, quantity: HKQuantity(unit: unit, doubleValue: value)))
-            lastDate = date
-        }
 
         return values
     }
