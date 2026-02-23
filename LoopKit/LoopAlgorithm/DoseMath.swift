@@ -175,21 +175,21 @@ extension TempBasalRecommendation {
     }
 }
 
-/// Computes a total insulin amount necessary to correct a glucose differential at a given sensitivity
+/// Computes a total insulin amount necessary to correct a glucose differential relative to the glucose effect at that time from 1 unit of insulin
 ///
 /// - Parameters:
 ///   - fromValue: The starting glucose value
 ///   - toValue: The desired glucose value
-///   - effectedSensitivity: The sensitivity, in glucose-per-insulin-unit
+///   - unitGlucoseEffect: The change in glucose due to 1 unit of insulin at the time in question
 /// - Returns: The insulin correction in units
-private func insulinCorrectionUnits(fromValue: Double, toValue: Double, effectedSensitivity: Double) -> Double? {
-    guard effectedSensitivity > 0 else {
+private func insulinCorrectionUnits(fromValue: Double, toValue: Double, unitGlucoseEffect: Double) -> Double? {
+    guard unitGlucoseEffect < 0 else {
         return nil
     }
 
-    let glucoseCorrection = fromValue - toValue
+    let glucoseDelta = toValue - fromValue
 
-    return glucoseCorrection / effectedSensitivity
+    return glucoseDelta / unitGlucoseEffect
 }
 
 /// Computes a target glucose value for a correction, at a given time during the insulin effect duration
@@ -233,37 +233,7 @@ extension Collection where Element: GlucoseValue {
         to correctionRange: GlucoseRangeSchedule,
         at date: Date,
         suspendThreshold: HKQuantity,
-        sensitivity: HKQuantity,
-        model: InsulinModel,
-        sleepSchedule: SleepSchedule?
-    ) -> InsulinCorrection? {
-        let effectDuration = model.effectDuration(at: date, sleepSchedule: sleepSchedule)
-        let timeline = [AbsoluteScheduleValue(startDate: date, endDate: date.addingTimeInterval(effectDuration), value: sensitivity)]
-        return insulinCorrection(
-            to: correctionRange,
-            at: date,
-            suspendThreshold: suspendThreshold,
-            insulinSensitivityTimeline: timeline,
-            model: model,
-            sleepSchedule: sleepSchedule)
-    }
-
-    /// For a collection of glucose prediction, determine the least amount of insulin delivered at
-    /// `date` to correct the predicted glucose to the middle of `correctionRange` at the time of prediction.
-    ///
-    /// - Parameters:
-    ///   - correctionRange: The schedule of glucose values used for correction
-    ///   - date: The date the insulin correction is delivered
-    ///   - suspendThreshold: The glucose value below which only suspension is returned
-    ///   - insulinSensitivityTimeline: The timeline of expected insulin sensitivity over the period of dose absorption
-    ///   - model: The insulin effect model
-    ///   - sleepSchedule: When insulin absorption should be slowed down
-    /// - Returns: A correction value in units, or nil if no correction needed
-    private func insulinCorrection(
-        to correctionRange: GlucoseRangeSchedule,
-        at date: Date,
-        suspendThreshold: HKQuantity,
-        insulinSensitivityTimeline: [AbsoluteScheduleValue<HKQuantity>],
+        sensitivity: InsulinSensitivitySchedule,
         model: InsulinModel,
         sleepSchedule: SleepSchedule?
     ) -> InsulinCorrection? {
@@ -271,23 +241,37 @@ extension Collection where Element: GlucoseValue {
         var eventualGlucose: GlucoseValue?
         var correctingGlucose: GlucoseValue?
         var minCorrectionUnits: Double?
-        var effectedSensitivityAtMinGlucose: Double?
+        var unitGlucoseEffectAtMinGlucose: Double?
 
         // Only consider predictions within the model's effect duration
-        let validDateRange = DateInterval(start: date, duration: model.effectDuration(at: date, sleepSchedule: sleepSchedule))
+        let effectDuration = model.effectDuration(at: date, sleepSchedule: sleepSchedule)
+        let validDateRange = DateInterval(start: date, duration: effectDuration)
 
         let unit = correctionRange.unit
         let suspendThresholdValue = suspendThreshold.doubleValue(for: unit)
+        
+        let insulinSensitivityHistory = sensitivity.quantitiesBetween(start: date, end: date.addingTimeInterval(effectDuration))
+
+        let unitEffects = [DoseEntry(type: .bolus, startDate: date, value: 1, unit: .units)].glucoseEffects(
+            insulinModelProvider: StaticInsulinModelProvider(model),
+            longestEffectDuration: effectDuration,
+            insulinSensitivityHistory: insulinSensitivityHistory,
+            sleepSchedule: sleepSchedule,
+            from: date,
+            to: date.addingTimeInterval(effectDuration)
+        )
+
+        var unitEffectsIndex = 0
 
         // For each prediction above target, determine the amount of insulin necessary to correct glucose based on the modeled effectiveness of the insulin at that time
         for prediction in self {
             guard validDateRange.contains(prediction.startDate) else {
                 continue
             }
-
+            
+            
             // If any predicted value is below the suspend threshold, return immediately
             guard prediction.quantity >= suspendThreshold else {
-                print("Suspend!")
                 return .suspend(min: prediction)
             }
 
@@ -303,28 +287,30 @@ extension Collection where Element: GlucoseValue {
                 maxValue: correctionRange.quantityRange(at: prediction.startDate).averageValue(for: unit)
             )
 
-            // Compute the dose required to bring this prediction to target:
-            // dose = (Glucose Δ) / (% effect × sensitivity)
+            let (nextUnitEffectsIndex, unitGlucoseEffect) = unitEffects.interpolateValue(
+                startIndex: unitEffectsIndex,
+                at: prediction.startDate,
+                unit: HKUnit.milligramsPerDeciliter
+            )
 
-            let isfSegments = insulinSensitivityTimeline.filterDateRange(date, prediction.startDate)
+            unitEffectsIndex = nextUnitEffectsIndex
 
-            let effectedSensitivity = isfSegments.reduce(0) { partialResult, segment in
-                let start = Swift.max(date, segment.startDate).timeIntervalSince(date)
-                let end = Swift.min(prediction.startDate, segment.endDate).timeIntervalSince(date)
-                let percentEffected = model.percentEffectRemaining(doseDate: date, at: start, sleepSchedule: sleepSchedule) - model.percentEffectRemaining(doseDate: date, at: end, sleepSchedule: sleepSchedule)
-                return percentEffected * segment.value.doubleValue(for: unit)
+            guard let unitGlucoseEffect = unitGlucoseEffect else {
+                preconditionFailure("Unable to locate unitEffect starting from date \(date) aligned with prediction startDate \(prediction.startDate)")
             }
 
             // Update range statistics
             if minGlucose == nil || prediction.quantity < minGlucose!.quantity {
                 minGlucose = prediction
-                effectedSensitivityAtMinGlucose = effectedSensitivity
+                unitGlucoseEffectAtMinGlucose = unitGlucoseEffect
             }
 
+
+            // Compute the dose required to bring this prediction to target:
             guard let correctionUnits = insulinCorrectionUnits(
                 fromValue: predictedGlucoseValue,
                 toValue: targetValue,
-                effectedSensitivity: Swift.max(.ulpOfOne, effectedSensitivity)
+                unitGlucoseEffect: Swift.min(-.ulpOfOne, unitGlucoseEffect)
             ), correctionUnits > 0 else {
                 continue
             }
@@ -350,11 +336,12 @@ extension Collection where Element: GlucoseValue {
         if minGlucose.quantity < minGlucoseTargets.lowerBound &&
             eventualGlucose.quantity < eventualGlucoseTargets.lowerBound
         {
-            guard let units = insulinCorrectionUnits(
-                fromValue: minGlucose.quantity.doubleValue(for: unit),
-                toValue: minGlucoseTargets.averageValue(for: unit),
-                effectedSensitivity: Swift.max(.ulpOfOne, effectedSensitivityAtMinGlucose!)
-            ) else {
+            guard let unitGlucoseEffectAtMinGlucose = unitGlucoseEffectAtMinGlucose,
+                  let units = insulinCorrectionUnits(
+                           fromValue: minGlucose.quantity.doubleValue(for: unit),
+                           toValue: minGlucoseTargets.averageValue(for: unit),
+                           unitGlucoseEffect: Swift.min(-.ulpOfOne, unitGlucoseEffectAtMinGlucose)
+                  ) else {
                 return nil
             }
 
@@ -439,7 +426,7 @@ extension Collection where Element: GlucoseValue {
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
-            sensitivity: sensitivity.quantity(at: date),
+            sensitivity: sensitivity,
             model: model,
             sleepSchedule: sleepSchedule
         )
@@ -517,7 +504,7 @@ extension Collection where Element: GlucoseValue {
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
-            sensitivity: sensitivity.quantity(at: date),
+            sensitivity: sensitivity,
             model: model,
             sleepSchedule: sleepSchedule
         ) else {
@@ -591,7 +578,7 @@ extension Collection where Element: GlucoseValue {
             to: correctionRange,
             at: date,
             suspendThreshold: suspendThreshold ?? correctionRange.quantityRange(at: date).lowerBound,
-            sensitivity: sensitivity.quantity(at: date),
+            sensitivity: sensitivity,
             model: model,
             sleepSchedule: sleepSchedule
         ) else {
