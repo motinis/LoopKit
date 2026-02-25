@@ -1157,11 +1157,7 @@ extension DoseStore {
         // Ignore any doses which have not yet ended by the specified date.
         // Also, since we are retrieving dosing history older than basalStart for
         // reconciliation purposes, we need to filter that out after reconciliation.
-        // Filter out resume events as they should have been consumed during reconciliation.
-        let normalizedDoses = doses.reconciled()
-            .filter({ $0.endDate <= end || $0.isMutable })
-            .filter({ $0.startDate >= basalStart || $0.type == .bolus })
-            .filter({ $0.type != .resume })
+        let normalizedDoses = doses.reconciled().filter({ $0.endDate <= end || $0.isMutable }).filter({ $0.startDate >= basalStart || $0.type == .bolus })
 
         return normalizedDoses
     }

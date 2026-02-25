@@ -868,11 +868,7 @@ extension Collection where Element == DoseEntry {
                     newEntries.append(lastBasal)
                 }
             case .resume:
-                // Resume events should be filtered out before calling this function
-                #if DEBUG
-                assertionFailure("Resume events should not be present in reconciled doses")
-                #endif
-                continue
+                assertionFailure("No resume events should be present in reconciled doses")
             case .bolus:
                 newEntries.append(dose)
             }
