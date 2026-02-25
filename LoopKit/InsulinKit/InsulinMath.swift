@@ -520,7 +520,7 @@ extension Collection where Element == DoseEntry {
             reconciled.append(last)
         }
 
-        return reconciled.map { $0.resolvingDelivery }
+        return reconciled.map { $0.resolvingDelivery }.filter { $0.type != .resume }
     }
 
     /// Annotates a sequence of dose entries with the configured basal rate schedule.
