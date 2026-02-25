@@ -249,13 +249,11 @@ extension Collection where Element: GlucoseValue {
 
         let unit = correctionRange.unit
         let suspendThresholdValue = suspendThreshold.doubleValue(for: unit)
-        
-        let insulinSensitivityHistory = sensitivity.quantitiesBetween(start: date, end: date.addingTimeInterval(effectDuration))
 
         let unitEffects = [DoseEntry(type: .bolus, startDate: date, value: 1, unit: .units)].glucoseEffects(
             insulinModelProvider: StaticInsulinModelProvider(model),
             longestEffectDuration: effectDuration,
-            insulinSensitivityHistory: insulinSensitivityHistory,
+            insulinSensitivity: sensitivity,
             sleepSchedule: sleepSchedule,
             from: date,
             to: date.addingTimeInterval(effectDuration)
