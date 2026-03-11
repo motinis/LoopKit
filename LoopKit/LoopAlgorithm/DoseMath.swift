@@ -288,11 +288,11 @@ extension Collection where Element: GlucoseValue {
             let (nextUnitEffectsIndex, unitGlucoseEffect) = unitEffects.interpolateValue(
                 startIndex: unitEffectsIndex,
                 at: prediction.startDate,
-                unit: HKUnit.milligramsPerDeciliter
+                unit: unit
             )
 
             unitEffectsIndex = nextUnitEffectsIndex
-
+            
             guard let unitGlucoseEffect = unitGlucoseEffect else {
                 preconditionFailure("Unable to locate unitEffect starting from date \(date) aligned with prediction startDate \(prediction.startDate)")
             }
